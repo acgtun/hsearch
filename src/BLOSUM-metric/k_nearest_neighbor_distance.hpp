@@ -68,7 +68,7 @@ class KNeighborsDistance {
     BuildDAG();
   }
   ~KNeighborsDistance() {
-    INFO("Release K longest path memory...");
+    //INFO("Release K longest path memory...");
     for (uint32_t i = 0; i < NODE_NUM; ++i) {
       delete[] dp[i];
       delete[] pre[i];

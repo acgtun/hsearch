@@ -39,6 +39,7 @@ void FindSimilarityCandidate(KNeighborsSimilarity& k_similarity,
   while (bPath && pathID < MAX_NUM_CANDIDATE) {
     bPath = k_similarity.FindCandidate(strCandPep, pathID, rawScore);
     candidate.push_back(strCandPep);
+    pathID++;
   }
 }
 
@@ -52,6 +53,7 @@ void FindDistanceCandidate(KNeighborsDistance& k_distance,
   while (bPath && pathID < MAX_NUM_CANDIDATE) {
     bPath = k_distance.FindCandidate(strCandPep, pathID, rawScore);
     candidate.push_back(strCandPep);
+    pathID++;
   }
 }
 
@@ -76,6 +78,7 @@ int main(int argc, const char* argv[]) {
     size_t p = 0;
     while (p < candidate_similarity.size() && p < candidate_distance.size()) {
       fout << candidate_similarity[p] << " " << candidate_distance[p] << endl;
+      p++;
     }
   }
 

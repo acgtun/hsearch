@@ -63,7 +63,7 @@ class KNeighborsSimilarity {
     BuildDAG();
   }
   ~KNeighborsSimilarity() {
-    INFO("Release K longest path memory...");
+    //INFO("Release K longest path memory...");
     for (uint32_t i = 0; i < NODE_NUM; ++i) {
       delete[] dp[i];
       delete[] pre[i];
