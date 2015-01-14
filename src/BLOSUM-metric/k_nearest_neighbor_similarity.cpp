@@ -34,7 +34,7 @@ void KNeighborsSimilarity::BuildDAG() {
 }
 
 void KNeighborsSimilarity::insert(AdjLinkDP * adj, int &adjN, int a, int b,
-                                int c) {
+                                  int c) {
   adj[adjN].nxt = adj[a].nxt;
   adj[adjN].c = c;
   adj[adjN].v = b;
@@ -112,7 +112,7 @@ void KNeighborsSimilarity::ShowPath(int n, int k, vector<uint32_t> & pathTmp) {
 }
 
 bool KNeighborsSimilarity::FindCandidate(char * strCandPep, const int & i,
-                                       int & rawScore) {
+                                         int & rawScore) {
   rawScore = Query(nNumNode - 1, i + 1);
   if (rawScore != INT_MIN) {
     vector < uint32_t > pathTmp;

@@ -34,7 +34,7 @@ double KNeighborsDistance::Query(int u, int k) {
         int v = invAdj[i].v;
         QueNodeDP tmp;
         int res = Query(v, 1);
-        if (fabs(res -INT_MAX) < 1e-6)
+        if (fabs(res - INT_MAX) < 1e-6)
           continue;
         tmp.c = res + invAdj[i].c;
         tmp.pre = v + 1 * 10000;
