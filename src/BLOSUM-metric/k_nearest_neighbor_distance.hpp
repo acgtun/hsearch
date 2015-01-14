@@ -17,7 +17,8 @@ namespace namespace_k_nearest_neighbor_distance {
 
 class AdjLinkDP {
  public:
-  int v, c, nxt;
+  int v, nxt;
+  double c;
 };
 
 class QueNodeDP {
@@ -76,7 +77,7 @@ class KNeighborsDistance {
   }
 
  private:
-  void insert(AdjLinkDP* adj, int &adjN, int a, int b, int c);
+  void insert(AdjLinkDP* adj, int &adjN, int a, int b, double c);
   double Query(int u, int k);
   void ShowPath(int n, int k, vector<uint32_t>& pathTmp);
   double GetWeight(const char& queryAA, const char &AA);

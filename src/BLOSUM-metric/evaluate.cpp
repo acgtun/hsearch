@@ -1,5 +1,6 @@
 #include "sdk.hpp"
 
+#include <stdio.h>
 #include <ctime>
 
 #include <vector>
@@ -60,6 +61,13 @@ void FindDistanceCandidate(KNeighborsDistance& k_distance,
 int main(int argc, const char* argv[]) {
   vector<vector<double> > distance;
   GetMetricDistance(distance);
+
+  for (int i = 0; i < 20; ++i) {
+    for (int j = 0; j < 20; ++j) {
+      printf("%.3lf ", distance[i][j]);
+    }
+    cout << endl;
+  }
 
   KNeighborsSimilarity k_similarity;
   KNeighborsDistance k_distance(&distance);

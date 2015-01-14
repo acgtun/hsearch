@@ -4,7 +4,7 @@
 namespace namespace_k_nearest_neighbor_distance {
 
 void KNeighborsDistance::insert(AdjLinkDP * adj, int &adjN, int a, int b,
-                                int c) {
+                                double c) {
   adj[adjN].nxt = adj[a].nxt;
   adj[adjN].c = c;
   adj[adjN].v = b;
@@ -33,7 +33,7 @@ double KNeighborsDistance::Query(int u, int k) {
       for (int i = invAdj[u].nxt; i != -1; i = invAdj[i].nxt) {
         int v = invAdj[i].v;
         QueNodeDP tmp;
-        int res = Query(v, 1);
+        double res = Query(v, 1);
         if (fabs(res - INT_MAX) < 1e-6)
           continue;
         tmp.c = res + invAdj[i].c;
@@ -85,7 +85,7 @@ bool KNeighborsDistance::FindCandidate(char* strCandPep, const int& i,
                                        double& rawScore) {
   rawScore = Query(nNumNode - 1, i + 1);
   if (fabs(rawScore - INT_MAX) > 1e-6) {
-    vector < uint32_t > pathTmp;
+    vector<uint32_t> pathTmp;
     ShowPath(nNumNode - 1, i + 1, pathTmp);
     for (uint32_t i = 1; i < pathTmp.size() - 1; i++) {
       strCandPep[i - 1] = NODELABEL[vNodeLabel[pathTmp[i]]];
