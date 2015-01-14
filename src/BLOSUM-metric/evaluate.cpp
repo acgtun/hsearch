@@ -1,7 +1,6 @@
 #include <vector>
 #include <iostream>
 
-
 #include "distance_matrix.hpp"
 
 #include "k_nearest_neighbor_similarity.hpp"
@@ -9,7 +8,6 @@
 
 using namespace_k_nearest_neighbor_similarity::KNeighborsSimilarity;
 using namespace_k_nearest_neighbor_distance::KNeighborsDistance;
-
 
 using namespace std;
 

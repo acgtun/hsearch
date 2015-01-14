@@ -32,7 +32,9 @@ class QueNodeDP {
 class KNeighborsDistance {
  private:
   std::priority_queue<QueNodeDP> cand[NODE_NUM];
-  int *dp[NODE_NUM], *pre[NODE_NUM];
+  double *dp[NODE_NUM];
+  int *pre[NODE_NUM];
+  int dp0[NODE_NUM];
   struct AdjLinkDP adj[100010], invAdj[100010];
   int adjN;
   int invAdjN;
@@ -48,7 +50,7 @@ class KNeighborsDistance {
   KNeighborsDistance(const vector<vector<double> >* _distance_matrix) {
     distance_matrix = _distance_matrix;
     for (uint32_t i = 0; i < NODE_NUM; ++i) {
-      dp[i] = new int[MAX_K];
+      dp[i] = new double[MAX_K];
       pre[i] = new int[MAX_K];
     }
     adjN = 0;
@@ -75,14 +77,14 @@ class KNeighborsDistance {
 
  private:
   void insert(AdjLinkDP* adj, int &adjN, int a, int b, int c);
-  int Query(int u, int k);
+  double Query(int u, int k);
   void ShowPath(int n, int k, vector<uint32_t>& pathTmp);
   double GetWeight(const char& queryAA, const char &AA);
   void BuildDAG();
 
  public:
   void UpdateWeight(const char* querySeq);
-  bool FindCandidate(char* strCandPep, const int& i, int& rawScore);
+  bool FindCandidate(char* strCandPep, const int& i, double& rawScore);
 };
 
 }  // namespace namespace_k_nearest_neighbor_distance

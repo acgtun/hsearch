@@ -1,4 +1,5 @@
 #include "k_nearest_neighbor_distance.hpp"
+#include <cmath>
 
 namespace namespace_k_nearest_neighbor_distance {
 
@@ -11,19 +12,19 @@ void KNeighborsDistance::insert(AdjLinkDP * adj, int &adjN, int a, int b,
   adjN++;
 }
 
-int KNeighborsDistance::Query(int u, int k) {
-  if (dp[u][0] >= k)
+double KNeighborsDistance::Query(int u, int k) {
+  if (dp0[u] >= k)
     return dp[u][k];
-  if (dp[u][0] == 0) {
+  if (dp0[u] == 0) {
     if (invAdj[u].nxt == -1) {
       if (u != 0)
-        return INT_MIN;
+        return INT_MAX;
       QueNodeDP tmp;
       tmp.c = 0;
       tmp.pre = -1;
       tmp.tc = 0;
       cand[u].push(tmp);
-      dp[u][0]++;
+      dp0[u]++;
       dp[u][1] = cand[u].top().c;
       pre[u][0]++;
       pre[u][1] = cand[u].top().pre;
@@ -33,7 +34,7 @@ int KNeighborsDistance::Query(int u, int k) {
         int v = invAdj[i].v;
         QueNodeDP tmp;
         int res = Query(v, 1);
-        if (res == INT_MIN)
+        if (fabs(res -INT_MAX) < 1e-6)
           continue;
         tmp.c = res + invAdj[i].c;
         tmp.pre = v + 1 * 10000;
@@ -42,7 +43,7 @@ int KNeighborsDistance::Query(int u, int k) {
       }
       if (cand[u].size() == 0)
         return -1;
-      dp[u][0]++;
+      dp0[u]++;
       dp[u][1] = cand[u].top().c;
       pre[u][0]++;
       pre[u][1] = cand[u].top().pre;
@@ -50,24 +51,24 @@ int KNeighborsDistance::Query(int u, int k) {
     }
   } else {
     if (cand[u].empty() || invAdj[u].nxt == -1)
-      return INT_MIN;
+      return INT_MAX;
     QueNodeDP cur = cand[u].top(), tmp;
     cand[u].pop();
     int res = Query(cur.pre % 10000, cur.pre / 10000 + 1);
-    if (res != INT_MIN) {
+    if (fabs(res - INT_MAX) > 1e-6) {
       tmp.c = res + cur.tc;
       tmp.pre = cur.pre % 10000 + (cur.pre / 10000 + 1) * 10000;
       tmp.tc = cur.tc;
       cand[u].push(tmp);
     }
     if (!cand[u].empty()) {
-      dp[u][0]++;
-      dp[u][dp[u][0]] = cand[u].top().c;
+      dp0[u]++;
+      dp[u][dp0[u]] = cand[u].top().c;
       pre[u][0]++;
       pre[u][pre[u][0]] = cand[u].top().pre;
-      return dp[u][dp[u][0]];
+      return dp[u][dp0[u]];
     } else
-      return INT_MIN;
+      return INT_MAX;
   }
 }
 
@@ -81,9 +82,9 @@ void KNeighborsDistance::ShowPath(int n, int k, vector<uint32_t>& pathTmp) {
 }
 
 bool KNeighborsDistance::FindCandidate(char* strCandPep, const int& i,
-                                       int& rawScore) {
+                                       double& rawScore) {
   rawScore = Query(nNumNode - 1, i + 1);
-  if (rawScore != INT_MIN) {
+  if (fabs(rawScore - INT_MAX) > 1e-6) {
     vector < uint32_t > pathTmp;
     ShowPath(nNumNode - 1, i + 1, pathTmp);
     for (uint32_t i = 1; i < pathTmp.size() - 1; i++) {
@@ -141,7 +142,7 @@ void KNeighborsDistance::UpdateWeight(const char* querySeq) {
     }
   }
   for (int i = 0; i < nNumNode; i++) {
-    dp[i][0] = 0;
+    dp0[i] = 0;
     pre[i][0] = 0;
     while (!cand[i].empty())
       cand[i].pop();
