@@ -23,8 +23,8 @@ class AdjLinkDP {
 
 class QueNodeDP {
  public:
-  double c;
-  int tc, pre;
+  double c, tc;
+  int pre;
   bool operator<(const QueNodeDP & b) const {
     return c > b.c;
   }

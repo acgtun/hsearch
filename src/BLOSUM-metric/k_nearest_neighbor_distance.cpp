@@ -94,7 +94,6 @@ bool KNeighborsDistance::FindCandidate(char* strCandPep, const int& i,
     return true;
   }
   return false;
-
 }
 
 double KNeighborsDistance::GetWeight(const char& queryAA, const char& AA) {

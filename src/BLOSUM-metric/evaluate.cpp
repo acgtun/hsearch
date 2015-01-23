@@ -18,7 +18,7 @@ using namespace_k_nearest_neighbor_distance::KNeighborsDistance;
 
 using namespace std;
 
-#define MAX_NUM_CANDIDATE 10
+#define MAX_NUM_CANDIDATE 100
 
 string RandomGenerateKmer() {
   string rand_seed;
@@ -58,37 +58,66 @@ void FindDistanceCandidate(KNeighborsDistance& k_distance,
   }
 }
 
-int main(int argc, const char* argv[]) {
-  vector<vector<double> > distance;
-  GetMetricDistance(distance);
-
-  for (int i = 0; i < 20; ++i) {
-    for (int j = 0; j < 20; ++j) {
-      printf("%.3lf ", distance[i][j]);
-    }
-    cout << endl;
-  }
-
+void evaluate(const vector<vector<double> >& distance,
+              const vector<string>& seeds) {
   KNeighborsSimilarity k_similarity;
   KNeighborsDistance k_distance(&distance);
-
-  srand(time(NULL));
-
   ofstream fout("test.out");
-  for (int i = 0; i < 1000; ++i) {
-    string rand_seed = RandomGenerateKmer();
+  int total = 0, cnt = 0;
+  for (size_t i = 0; i < seeds.size(); ++i) {
     vector<string> candidate_similarity;
     vector<string> candidate_distance;
-    FindSimilarityCandidate(k_similarity, rand_seed, candidate_similarity);
-    FindDistanceCandidate(k_distance, rand_seed, candidate_distance);
+    FindSimilarityCandidate(k_similarity, seeds[i], candidate_similarity);
+    FindDistanceCandidate(k_distance, seeds[i], candidate_distance);
     fout << "test " << i + 1 << endl;
-    fout << "--" << rand_seed << endl;
+    fout << "--" << seeds[i] << endl;
     size_t p = 0;
     while (p < candidate_similarity.size() && p < candidate_distance.size()) {
       fout << candidate_similarity[p] << " " << candidate_distance[p] << endl;
       p++;
     }
+
+    for (size_t p = 0; p < candidate_similarity.size(); ++p) {
+      total++;
+      for (size_t q = 0; q < candidate_distance.size(); ++q) {
+        if (candidate_similarity[p] == candidate_distance[q]) {
+          cnt++;
+          break;
+        }
+      }
+    }
   }
+
+  cout << "total = " << total << " " << cnt << " " << cnt / (double) total
+       << endl;
+}
+
+int main(int argc, const char* argv[]) {
+
+  srand(time(NULL));
+  vector<string> seeds;
+  for (int i = 0; i < 10000; ++i) {
+    seeds.push_back(RandomGenerateKmer());
+  }
+
+//  for (double e = 1.1; e < 100; e += 0.1) {
+      double e = 2.76;
+     for (double lamda = -0.5; lamda < 0; lamda += 0.01) {
+      cout << "e lamda = " << e << " " << lamda << endl;
+      vector<vector<double> > distance;
+      if (!GetMetricDistance(distance, lamda, e))
+        continue;
+
+      for (int i = 0; i < 20; ++i) {
+        for (int j = 0; j < 20; ++j) {
+      //    printf("%.3lf ", distance[i][j]);
+        }
+        cout << endl;
+      }
+
+      evaluate(distance, seeds);
+    }
+ // }
 
   return 0;
 }
