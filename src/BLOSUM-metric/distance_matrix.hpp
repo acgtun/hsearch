@@ -79,3 +79,26 @@ bool GetMetricDistance(vector<vector<double> >& distance, const double& lamda,
 
   return true;
 }
+
+void GetMetricDistanceother(vector<vector<double> >& distance) {
+  distance.resize(20);
+  for (int i = 0; i < 20; ++i) {
+    distance[i].resize(20);
+    for (int j = 0; j < 20; ++j) {
+      distance[i][j] = BLOSUM62[i][i] + BLOSUM62[j][j] - 2 * BLOSUM62[i][j];
+    }
+  }
+
+  int cnt = 0;
+  for (int i = 0; i < 20; i++) {
+    for (int j = 0; j < 20; j++) {
+      for (int k = 0; k < 20; k++) {
+        if (distance[i][j] + distance[j][k] < distance[i][k]) {
+          cnt++;
+        }
+      }
+    }
+  }
+  cout << "cnt = " << cnt << endl;
+}
+
