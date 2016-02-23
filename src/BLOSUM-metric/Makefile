@@ -6,7 +6,7 @@ ifndef ACGTUN_UTIL
 ACGTUN_UTIL=./../acgtun_util
 endif
 
-PROGS = evaluate
+PROGS = evaluate evaluate_correlation
 
 CXX = g++
 CFLAGS = -Wall -O3 -fPIC -fmessage-length=50
@@ -26,6 +26,9 @@ all:	$(PROGS)
 	$(CXX) $(CFLAGS) -c -o $@ $<  -I$(ACGTUN_UTIL)
 
 evaluate : $(OBJ) \
+	$(addprefix $(ACGTUN_UTIL)/, option.o)
+	
+evaluate_correlation : $(OBJ) \
 	$(addprefix $(ACGTUN_UTIL)/, option.o)
 
 %: %.cpp

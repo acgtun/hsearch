@@ -18,8 +18,6 @@ using namespace_k_nearest_neighbor_distance::KNeighborsDistance;
 
 using namespace std;
 
-//#define MAX_NUM_CANDIDATE 5
-
 string RandomGenerateKmer() {
   string rand_seed;
   for (int i = 0; i < HASHAALEN; ++i) {
@@ -59,11 +57,10 @@ void FindDistanceCandidate(KNeighborsDistance& k_distance,
   }
 }
 
-void evaluate(const vector<vector<double> >& distance,
-              const vector<string>& seeds, const int& MAX_NUM_CANDIDATE) {
+double evaluate(const vector<vector<double> >& distance,
+                const vector<string>& seeds, const int& MAX_NUM_CANDIDATE) {
   KNeighborsSimilarity k_similarity;
   KNeighborsDistance k_distance(&distance);
-  ofstream fout("test.out");
   int total = 0, cnt = 0;
   for (size_t i = 0; i < seeds.size(); ++i) {
     vector<string> candidate_similarity;
@@ -72,16 +69,17 @@ void evaluate(const vector<vector<double> >& distance,
                             MAX_NUM_CANDIDATE);
     FindDistanceCandidate(k_distance, seeds[i], candidate_distance,
                           MAX_NUM_CANDIDATE);
-    fout << "test " << i + 1 << endl;
-    fout << "--" << seeds[i] << endl;
-    fout << "size " << candidate_similarity.size() << " "
-         << candidate_distance.size() << endl;
-    size_t p = 0;
-    while (p < candidate_similarity.size() && p < candidate_distance.size()) {
-      fout << candidate_similarity[p] << " " << candidate_distance[p] << endl;
-      p++;
-    }
-
+    /*
+     fout << "test " << i + 1 << endl;
+     fout << "--" << seeds[i] << endl;
+     fout << "size " << candidate_similarity.size() << " "
+     << candidate_distance.size() << endl;
+     size_t p = 0;
+     while (p < candidate_similarity.size() && p < candidate_distance.size()) {
+     fout << candidate_similarity[p] << " " << candidate_distance[p] << endl;
+     p++;
+     }
+     */
     for (size_t p = 0; p < candidate_similarity.size(); ++p) {
       total++;
       for (size_t q = 0; q < candidate_distance.size(); ++q) {
@@ -93,12 +91,10 @@ void evaluate(const vector<vector<double> >& distance,
     }
   }
 
-  cout << "total = " << total << " " << cnt << " " << cnt / (double) total
-       << endl;
+  return cnt / (double) total;
 }
 
 int main(int argc, const char* argv[]) {
-
   srand(time(NULL));
   vector<string> seeds;
   for (int i = 0; i < 100000; ++i) {
@@ -106,37 +102,20 @@ int main(int argc, const char* argv[]) {
   }
 
   vector<vector<double> > distance;
-  GetMetricDistanceother(distance);
-  int candidates[] = { 1, 5, 10, 20, 30, 50, 80, 100, 150, 200, 300, 500, 800,
-      1000, 2000, 5000 };
+  SimilarityMatrix2DistanceMatrix(distance);
+  int candidates[] = { 1, 5, 10, 20, 30, 50, 80, 100, 150, 200, 300, 500, 1000 };
+
   vector<int> MAX_NUM_CANDIDATE(candidates,
                                 candidates + sizeof(candidates) / sizeof(int));
   for (size_t i = 0; i < MAX_NUM_CANDIDATE.size(); ++i) {
-    cout << "MAX_NUM_CANDIDATE = " << MAX_NUM_CANDIDATE[i] << endl;
-    evaluate(distance, seeds, MAX_NUM_CANDIDATE[i]);
+    cout << MAX_NUM_CANDIDATE[i] << " ";
   }
-  //////////////////////
-  /* cout << "new method end..............." << endl;
-
-   //  for (double e = 1.1; e < 100; e += 0.1) {
-   double e = 2.76;
-   for (double lamda = -0.5; lamda < 0; lamda += 0.01) {
-   cout << "e lamda = " << e << " " << lamda << endl;
-   vector<vector<double> > distance;
-   if (!GetMetricDistance(distance, lamda, e))
-   continue;
-
-   for (int i = 0; i < 20; ++i) {
-   for (int j = 0; j < 20; ++j) {
-   //    printf("%.3lf ", distance[i][j]);
-   }
-   cout << endl;
-   }
-
-   evaluate(distance, seeds);
-   }
-   // }
-   */
+  cout << endl;
+  for (size_t i = 0; i < MAX_NUM_CANDIDATE.size(); ++i) {
+    vector<vector<double> > new_dis(distance);
+    cout << evaluate(new_dis, seeds, MAX_NUM_CANDIDATE[i]) << " ";
+  }
+  cout << endl;
 
   return 0;
 }

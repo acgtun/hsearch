@@ -12,7 +12,7 @@ using namespace std;
 
 namespace namespace_k_nearest_neighbor_distance {
 
-#define NODE_NUM 200
+#define NODE_NUM 5002
 #define MAX_K  5001
 
 class AdjLinkDP {

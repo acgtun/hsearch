@@ -10,77 +10,7 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-bool GetMetricDistance2(vector<vector<double> >& distance, const double& lamda,
-                       const double& e) {
-
-  distance.resize(20);
-  for (int i = 0; i < 20; i++) {
-    distance[i].resize(20);
-    for (int j = 0; j < 20; j++) {
-      if (i == j) {
-        distance[i][j] = 0.000;
-      } else {
-        distance[i][j] = 1 - BLOSUM62[i][j];
-      }
-    }
-  }
-
-  int cnt = 0;
-  for (int i = 0; i < 20; i++) {
-    for (int j = 0; j < 20; j++) {
-      for (int k = 0; k < 20; k++) {
-        if (distance[i][j] + distance[j][k] < distance[i][k]) {
-          cnt++;
-        } else {
-        }
-      }
-    }
-  }
-  if (cnt > 0) {
-    cerr << "error~!~" << endl;
-    //exit (EXIT_FAILURE);
-    return false;
-  }
-
-  return true;
-}
-
-bool GetMetricDistance(vector<vector<double> >& distance, const double& lamda,
-                        const double& e) {
-  int cnt = 0;
-  for (int i = 0; i < 20; i++) {
-    for (int j = 0; j < 20; j++) {
-      for (int k = 0; k < 20; k++) {
-        if (pow(e, (lamda * BLOSUM62[i][j])) + pow(e, (lamda * BLOSUM62[j][k]))
-            < pow(e, (lamda * BLOSUM62[i][k]))) {
-          cnt++;
-        } else {
-        }
-      }
-    }
-  }
-  if (cnt > 0) {
-    cerr << "error~!~" << endl;
-    //exit (EXIT_FAILURE);
-    return false;
-  }
-
-  distance.resize(20);
-  for (int i = 0; i < 20; i++) {
-    distance[i].resize(20);
-    for (int j = 0; j < 20; j++) {
-      if (i == j) {
-        distance[i][j] = 0.000;
-      } else {
-        distance[i][j] = pow(e, (lamda * BLOSUM62[i][j]));
-      }
-    }
-  }
-
-  return true;
-}
-
-void GetMetricDistanceother(vector<vector<double> >& distance) {
+void SimilarityMatrix2DistanceMatrix(vector<vector<int> >& distance) {
   distance.resize(20);
   for (int i = 0; i < 20; ++i) {
     distance[i].resize(20);
@@ -89,6 +19,20 @@ void GetMetricDistanceother(vector<vector<double> >& distance) {
     }
   }
 
+  for (int i = 0; i < 20; ++i) {
+    for (int j = 0; j < 20; ++j) {
+      cout << BLOSUM62[i][j] << " ";
+    }
+    cout << endl;
+  }
+  cout << "..........................." << endl;
+  for (int i = 0; i < 20; ++i) {
+    for (int j = 0; j < 20; ++j) {
+      cout << distance[i][j] << " ";
+    }
+    cout << endl;
+  }
+
   int cnt = 0;
   for (int i = 0; i < 20; i++) {
     for (int j = 0; j < 20; j++) {
@@ -99,6 +43,10 @@ void GetMetricDistanceother(vector<vector<double> >& distance) {
       }
     }
   }
-  cout << "cnt = " << cnt << endl;
+  if (cnt == 0) {
+    cout << "Triangle Inequality Holds" << endl;
+  } else {
+    cout << "Triangle Inequality Doesn't Hold" << endl;
+  }
 }
 
