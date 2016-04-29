@@ -6,5 +6,5 @@
 #PBS -q cmb
 #PBS -d .
 
-./cluster ~/panfs/protein_alignment/protein_database/nr
+./pcluster ~/panfs/protein_alignment/protein_database/nr
 

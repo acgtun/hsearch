@@ -6,86 +6,76 @@
 #include "smithlab_os.hpp"
 #include "OptionParser.hpp"
 
-#define MAX_LINE_LENGTH 5000
+#define DEBUG
+class ProteinDB {
+public:
+	ProteinDB(const string& _file_name) :
+			file_name(_file_name) {
+		ReadFASTAFile();
+	}
 
-class ReadOneProtein {
- public:
-  ReadOneProtein(const string& _file_name)
-      : file_name(_file_name) {
-    fin.open(_file_name.c_str());
-    if (!fin) {
-      throw SMITHLABException("cannot open input file " + file_name);
-    }
-    cout << file_name << endl;
-    num_of_proteins = 0;
-    compelted = false;
+	~ProteinDB() {
+#ifdef DEBUG
+		for (size_t i = 0; i < pro_seqs.size(); ++i) {
+			cout << pro_names[i] << endl;
+			for (size_t j = 0; j < pro_seqs[i].size(); ++j) {
+				cout << pro_seqs[i][j];
+			}
+			cout << endl;
+		}
+#endif
+	}
 
-    getline(fin, line);
-    pre_name = GetProteinName(line);
-    protein_ID_Names.insert(make_pair(num_of_proteins, pre_name));
-    num_of_proteins++;
-  }
+	void ReadFASTAFile() {
+		ifstream fin(file_name.c_str());
+		if (!fin) {
+			throw SMITHLABException("cannot open input file " + file_name);
+		}
+		vector<char> sequence;
+		string line;
+		while (getline(fin, line)) {
+			if (line[0] == '>') {
+				if (sequence.size() != 0) {
+					pro_seqs.push_back(sequence);
+					sequence.clear();
+				}
+				uint32_t space_pos = line.find_first_of(' ');
+				if (space_pos == string::npos) {
+					pro_names.push_back(line.substr(1));
+				} else {
+					pro_names.push_back(line.substr(1, space_pos - 1));
+				}
+				continue;
+			}
+			for (uint32_t i = 0; i < line.size(); ++i) {
+				if (AA20.find_first_of(line[i]) != string::npos) {
+					sequence.push_back(toupper(line[i]));
+				} else if (isalpha(line[i])) {
+					sequence.push_back(AA20[rand() % 20]);  //todo
+				}
+			}
+		}
+		if (sequence.size() != 0) {
+			pro_seqs.push_back(sequence);
+		}
 
-  ~ReadOneProtein() {
-//    for (unordered_map<uint32_t, string>::iterator it =
-//        protein_ID_Names.begin(); it != protein_ID_Names.end(); ++it) {
-//      cout << it->first << " " << it->second << endl;
-//    }
-    fin.close();
-  }
+		fin.close();
+		num_of_proteins = pro_seqs.size();
+	}
 
-  string GetProteinName(const string& input) {
-    if (input[0] != '>') {
-      throw SMITHLABException(
-          "the protein file should be fasta format " + file_name);
-    }
+	void OutputProtein(const uint32_t& i) {
+		for (size_t j = 0; j < pro_seqs[i].size(); ++j) {
+			cout << pro_seqs[i][j];
+		}
+		cout << endl;
+	}
 
-    uint32_t space_pos = input.find_first_of(' ');
-    if (space_pos == string::npos) {
-      return input.substr(1);
-    } else {
-      return input.substr(1, space_pos - 1);
-    }
-  }
+	vector<vector<char> > pro_seqs;
+	vector<string> pro_names;
+	unordered_map<uint32_t, vector<uint32_t> > hash_buckets;
 
-  vector<char> GetNextProtein() {
-    vector<char> seq;
-    if (pre_name.size() == 0) {
-      compelted = true;
-      return seq;
-    }
-
-    while (getline(fin, line)) {
-      if (line[0] == '>') {
-        pre_name = GetProteinName(line);
-        protein_ID_Names.insert(make_pair(num_of_proteins, pre_name));
-        num_of_proteins++;
-
-        return seq;
-      }
-
-      for (uint32_t i = 0; i < line.size(); ++i) {
-        if (AA20.find_first_of(line[i]) != string::npos) {
-          seq.push_back(toupper(line[i]));
-        } else if (isalpha(line[i])) {
-          seq.push_back(AA20[rand() % 20]);  //todo
-        }
-      }
-    }
-
-    pre_name.clear();
-    compelted = true;
-    return seq;
-  }
-
-  unordered_map<uint32_t, string> protein_ID_Names;
-
-  string pre_name;
-  uint32_t num_of_proteins;
-  string file_name;
-  ifstream fin;
-  string line;
-  bool compelted;
+	uint32_t num_of_proteins;
+	string file_name;
 };
 
 #endif /* _READONEPROTEIN_H_ */
