@@ -16,9 +16,9 @@ public:
 
 	~ProteinDB() {
 #ifdef DEBUG
-		for (size_t i = 0; i < pro_seqs.size(); ++i) {
+		for (uint32_t i = 0; i < pro_seqs.size(); ++i) {
 			cout << pro_names[i] << endl;
-			for (size_t j = 0; j < pro_seqs[i].size(); ++j) {
+			for (uint32_t j = 0; j < pro_seqs[i].size(); ++j) {
 				cout << pro_seqs[i][j];
 			}
 			cout << endl;
@@ -64,7 +64,7 @@ public:
 	}
 
 	void OutputProtein(const uint32_t& i) {
-		for (size_t j = 0; j < pro_seqs[i].size(); ++j) {
+		for (uint32_t j = 0; j < pro_seqs[i].size(); ++j) {
 			cout << pro_seqs[i][j];
 		}
 		cout << endl;
@@ -72,7 +72,6 @@ public:
 
 	vector<vector<char> > pro_seqs;
 	vector<string> pro_names;
-	unordered_map<uint32_t, vector<uint32_t> > hash_buckets;
 
 	uint32_t num_of_proteins;
 	string file_name;

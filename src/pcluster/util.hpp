@@ -60,8 +60,10 @@ using std::ifstream;
 using std::tr1::unordered_map;
 using std::tr1::unordered_set;
 
-typedef std::tr1::unordered_map<uint32_t, vector<pair<uint32_t, uint32_t> > > HashTable;
+// PROTEIN IDS IN EACH HASH KEY SPLITED BY LSH
+typedef std::tr1::unordered_map<uint32_t, vector<uint32_t> > HASH_BUCKETS;
 
+const char pcluster_version[] = "1.0";
 
 /*
  A0

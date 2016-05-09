@@ -7,7 +7,7 @@ inline uint32_t sign(T val) {
 
 double Dot(const vector<double>& px, const vector<double>& py) {
   double sum = 0;
-  for(size_t i = 0;i < px.size();++i) {
+  for(uint32_t i = 0;i < px.size();++i) {
       sum += px[i] * py[i];
   }
 
