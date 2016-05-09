@@ -23,7 +23,7 @@ ifndef SMITHLAB_CPP
 SMITHLAB_CPP=$(PCLUSTER)/src/smithlab_cpp
 endif
 
-app_subdirs=pcluster
+app_subdirs=pcluster rapsearch2
 
 all:
 	@for i in $(app_subdirs); do \

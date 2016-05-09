@@ -1,10 +1,17 @@
-#include "read_proteins.hpp"
+#include "util.hpp"
 #include "lsh.hpp"
+
+#include "read_proteins.hpp"
+
+#include "HashSearch.h"
+
+#include "./../smithlab_cpp/smithlab_os.hpp"
+#include "./../smithlab_cpp/OptionParser.hpp"
 
 void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
   clock_t start = clock();
   uint32_t feature_size = static_cast<uint32_t>(pow(8, HASHLEN));
-  uint32_t bit_num = 16;
+  uint32_t bit_num = 8;
   double sigma = 0.2;
 
   KLSH klsh_low(feature_size, bit_num, sigma);
@@ -12,7 +19,7 @@ void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
   vector<int> features(feature_size, 0);
 
   for (uint32_t i = 0; i < proteinDB.num_of_proteins; ++i) {
-    vector<char>& pro_seq = proteinDB.pro_seqs[i];
+    const vector<char>& pro_seq = proteinDB.pro_seqs[i];
     if (pro_seq.size() < HASHLEN) {
       continue;
     }
@@ -27,7 +34,7 @@ void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
     hash_buckets[klsh_low.GetHashValue(p)].push_back(i);
   }
   fprintf(stderr, "[NUMBER OF PRE-GROUPS %lu\n", hash_buckets.size());
-
+#ifdef DEBUG
   for (HASH_BUCKETS::iterator it = hash_buckets.begin();
       it != hash_buckets.end(); ++it) {
     cout << it->first << " " << it->second.size() << endl;
@@ -36,6 +43,7 @@ void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
     }
     cout << "cluster -----------------------------------" << endl;
   }
+#endif
 
   printf("%lf seconds\n", (clock() - start) / (double) CLOCKS_PER_SEC);
 }
@@ -73,6 +81,23 @@ int main(int argc, const char *argv[]) {
     /* number of threads for mapping */
     int num_of_threads = 1;
 
+    double dLogEvalueCut = DEFAULT_LOGEVALTHRESH;
+    int nMaxHitPer = 500;
+    int nMaxAlnPer = 100;
+    int nQueryType = 2;
+    bool bPrintEmpty = false;
+    bool bGapExt = true;
+    bool bAcc = false;
+    bool bHssp = false;
+    int nMinLen = 0;
+    int bXml = false;
+    int nStdout = 0;
+    double dBitsCut = 0.0;
+    bool bBitsCut = false;
+    bool bLogE = true;
+    bool bEvalue = true;
+    double dThr = dLogEvalueCut;
+
     /****************** COMMAND LINE OPTIONS ********************/
     OptionParser opt_parse(strip_path(argv[0]), "cluster protein sequences",
                            "");
@@ -101,8 +126,24 @@ int main(int argc, const char *argv[]) {
     //////////////////////////////////////////////////////////////
     // PRECLUSTERING
     ProteinDB proteinDB(protein_file);
+    fprintf(stderr, "[THE TOTAL NUMBER OF PROTEINS IN THE DATABASE IS %lu]\n",
+        proteinDB.num_of_proteins);
     HASH_BUCKETS hash_buckets;
     PreClustering(proteinDB, hash_buckets);
+
+    //////////////////////
+    // CLUSTERING
+    for(HASH_BUCKETS::iterator it = hash_buckets.begin();it != hash_buckets.end();++it) {
+      //cout << it->first << endl;
+      CHashSearch hs(0);
+      cout << it->second.size() << endl;
+      hs.BuildProteinsIndex(it->second, proteinDB);
+
+      hs.ProteinSearching(it->second, proteinDB, bEvalue, bLogE, dThr,
+          nMaxAlnPer, nMaxHitPer,
+          nQueryType, bPrintEmpty, bGapExt, bAcc, bHssp, nMinLen, bXml);
+    }
+
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
     return EXIT_FAILURE;

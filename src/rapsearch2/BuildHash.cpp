@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
 	printf("now building hash file\n");
 	CHashSearch hashSearch(0);
-	hashSearch.Process(szDbSeq, szDbHash, bFullId, nSplitNum);
+	//hashSearch.Process(szDbSeq, szDbHash, bFullId, nSplitNum);
 
 	printf("hash file saved to file %s\n", szDbHash);
 

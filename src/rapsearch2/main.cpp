@@ -220,7 +220,7 @@ int main(int argc, char** argv)
     printf("QueryFileName %s\n", szQrFile);
 
 	CHashSearch hs(nThreadNum);
-	hs.Process(szDbHash, szQrFile, szOutFile, nStdout, bEvalue, bLogE, dThr, nMaxAlnPer, nMaxHitPer, nQueryType, bPrintEmpty, bGapExt, bAcc, bHssp, nMinLen, bXml);
+	//hs.Process(szDbHash, szQrFile, szOutFile, nStdout, bEvalue, bLogE, dThr, nMaxAlnPer, nMaxHitPer, nQueryType, bPrintEmpty, bGapExt, bAcc, bHssp, nMinLen, bXml);
 
     printf(">>>Main END\n");
     time_t jobfinished = time(NULL);
