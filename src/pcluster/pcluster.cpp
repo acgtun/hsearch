@@ -3,7 +3,7 @@
 
 #include "read_proteins.hpp"
 
-#include "HashSearch.h"
+#include "HashSearch.hpp"
 
 #include "./../smithlab_cpp/smithlab_os.hpp"
 #include "./../smithlab_cpp/OptionParser.hpp"
@@ -126,7 +126,7 @@ int main(int argc, const char *argv[]) {
     //////////////////////////////////////////////////////////////
     // PRECLUSTERING
     ProteinDB proteinDB(protein_file);
-    fprintf(stderr, "[THE TOTAL NUMBER OF PROTEINS IN THE DATABASE IS %lu]\n",
+    fprintf(stderr, "[THE TOTAL NUMBER OF PROTEINS IN THE DATABASE IS %u]\n",
         proteinDB.num_of_proteins);
     HASH_BUCKETS hash_buckets;
     PreClustering(proteinDB, hash_buckets);
@@ -135,7 +135,7 @@ int main(int argc, const char *argv[]) {
     // CLUSTERING
     for(HASH_BUCKETS::iterator it = hash_buckets.begin();it != hash_buckets.end();++it) {
       //cout << it->first << endl;
-      CHashSearch hs(0);
+      CHashSearch hs;
       cout << it->second.size() << endl;
       hs.BuildProteinsIndex(it->second, proteinDB);
 

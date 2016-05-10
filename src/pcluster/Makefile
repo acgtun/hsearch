@@ -30,7 +30,7 @@ endif
 PROGS = pcluster
 
 CXX = g++
-CFLAGS = -Wall -std=c++11 -O3 -fPIC -fmessage-length=50
+CFLAGS = -Wall -std=c++11 -O3 -fPIC -fmessage-length=50 -w
 
 TEST_DIR = $(SRC_ROOT)/test
 
@@ -38,9 +38,11 @@ ifeq "$(shell uname)" "Darwin"
 CFLAGS += -arch x86_64
 endif
 
-SRCCLUSTER = lsh.cpp read_proteins.cpp
-OBJCLUSTER = $(patsubst %.cpp,%.o,$(SRCCLUSTER))
+SRCCLUSTER = lsh.cpp read_proteins.cpp HashSearch.cpp \
+	mergeUnit.cpp read_proteins.cpp Seg.cpp union_find.cpp \
+	BlastStat.cpp
 
+OBJCLUSTER = $(patsubst %.cpp,%.o,$(SRCCLUSTER))
 
 all:	$(PROGS)
 

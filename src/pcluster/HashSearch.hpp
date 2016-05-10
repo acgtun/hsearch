@@ -8,14 +8,13 @@
 #include <string>
 #include <bitset>
 #include <algorithm>
-//#include <boost/thread/thread.hpp>
-#include "BlastStat.h"
-#include "paras.h"
-#include "cindex.h"
-#include "hitUnit.h"
-#include "Seg.h"
 
 #include "read_proteins.hpp"
+#include "BlastStat.hpp"
+#include "paras.hpp"
+#include "cindex.hpp"
+#include "hitUnit.hpp"
+#include "Seg.hpp"
 
 using namespace std;
 
@@ -118,7 +117,7 @@ typedef MRESULT::iterator MIT;
 /* the class for indexing, searching */
 class CHashSearch {
  public:
-  CHashSearch(int nThreadNum);
+  CHashSearch();
   ~CHashSearch(void) {
     if (NULL != m_pBlastSig) {
       delete m_pBlastSig;
@@ -212,15 +211,15 @@ class CHashSearch {
 
   void PrintAln(vector<CHitUnit>& v, ofstream& of);
   void PrintM8(vector<CHitUnit>& v, ofstream& of);
-/*
-  template<class T>
-  void PrintXmlLine(char* sTag, T s);
-  void PrintXmlTag(char* sTag);
-  void PrintXmlTagR(char* sTag);
-  void PrintXmlBegin(string& sDb);
-  void PrintXml(vector<CHitUnit>& v, int nIdx);
-  void PrintXmlEnd();
-*/
+  /*
+   template<class T>
+   void PrintXmlLine(char* sTag, T s);
+   void PrintXmlTag(char* sTag);
+   void PrintXmlTagR(char* sTag);
+   void PrintXmlBegin(string& sDb);
+   void PrintXml(vector<CHitUnit>& v, int nIdx);
+   void PrintXmlEnd();
+   */
  private:
   uint m_unMer;
   uint m_unDSize;

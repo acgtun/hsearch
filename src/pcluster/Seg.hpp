@@ -2,12 +2,12 @@
 #ifndef __SEG_H_
 #define __SEG_H_
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
 #include <ctype.h>
-#include <math.h>
+#include <cmath>
 
 #define LENCORRLIM 120
 #define MIN(a,b)        ((a) <= (b) ? (a) : (b))

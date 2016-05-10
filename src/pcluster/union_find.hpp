@@ -2,6 +2,7 @@
 #define PCLUSTER_UNION_FIND_HPP_
 
 #include "util.hpp"
+#include "read_proteins.hpp"
 
 class UnionFind {
  public:
