@@ -33,7 +33,7 @@ void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
 
     hash_buckets[klsh_low.GetHashValue(p)].push_back(i);
   }
-  fprintf(stderr, "[NUMBER OF PRE-GROUPS %lu\n", hash_buckets.size());
+  fprintf(stderr, "[NUMBER OF PRE-GROUPS %lu]\n", hash_buckets.size());
 #ifdef DEBUG
   for (HASH_BUCKETS::iterator it = hash_buckets.begin();
       it != hash_buckets.end(); ++it) {
@@ -136,7 +136,7 @@ int main(int argc, const char *argv[]) {
     for(HASH_BUCKETS::iterator it = hash_buckets.begin();it != hash_buckets.end();++it) {
       //cout << it->first << endl;
       CHashSearch hs;
-      cout << it->second.size() << endl;
+      //cout << it->second.size() << endl;
       hs.BuildProteinsIndex(it->second, proteinDB);
 
       hs.ProteinSearching(it->second, proteinDB, bEvalue, bLogE, dThr,

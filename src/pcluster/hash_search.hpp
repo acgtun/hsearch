@@ -22,9 +22,6 @@ typedef unsigned int uint;
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 
-typedef vector<char> POOL;
-typedef POOL::iterator ITER;
-
 typedef vector<uint> VUINT;
 typedef vector<uchar> VUCHAR;
 typedef vector<ushort> VUSHORT;
@@ -126,28 +123,11 @@ class CHashSearch {
     if (NULL != m_pComptor) {
       delete m_pComptor;
     }
+
+    of.close();
   }
 
-  // do the protein database search
-  void Process(char* szDBFile, char* szQFile, char* szOFile, int nStdout,
-               bool bEvalue, bool bLogE, double dThr, int nMaxOut, int nMaxM8,
-               int nQueryTypeq, bool bPrintEmpty, bool bGapExt, bool bAcc,
-               bool bHssp, int nMinLen, bool bXml, uint unDSize = 300000000,
-               uint unQSize = 500000000, uint unMer = 6);
-  // indexing the database
-  void Process(char* szDBFile, char* szDbHash, bool bFullId, int nSplitNum = 0,
-               uint unMer = 6);
-
  private:
-  // read file and build the hash table
-  int BuildDHash(const char* szDbFile, string& sOutFile, int nSplitNum,
-                 bool bFullId);
-  // read file and build the hash table
-  int BuildQHash(istream& input, int nQueryType, map<string, char>& mTransTable,
-                 map<char, char>& mComple, Seg* seg, Seg* segsht,
-                 vector<uchar>& vQSeqs, vector<uint>& vQLens, VNAMES& vQNames);
-  // probe that what is the type of query
-  int GuessQueryType(POOL& vPool);
   // char -> compressed code
   void Encode(VUCHAR& v);
   // char -> compressed code & count DB
@@ -159,12 +139,9 @@ class CHashSearch {
   // char -> 10-base index
   int Tran2Ten(CAlnPckg& QrAln, vector<char>& vValid);
 
-  // search all sequences in database
-  void Search(string& sDbPre, int nSeqNum, vector<uchar>& vQSeqs,
-              vector<uint>& vQLens, VNAMES& vQNames);
   // search for each search in database
   void Searching(CQrPckg& Query, CDbPckg& Db);
-  void ExtendSetPair(int nLen, CQrPckg& Query, CDbPckg& Db);
+
   // search for each seed in a entry of database
   int ExtendSeq2Set(int nSeed, uint unSeedLen, vector<uchar>& vExtra,
                     int nQSeqIdx, CAlnPckg& QrAln, int nQOriLen,
@@ -200,35 +177,15 @@ class CHashSearch {
   // output the result
   void PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db);
 
-  // revise the size of database according to swift
-  void GuessTotSeq(const char* szFile, long int& lnSeqNum, long int& lnAaNum);
-
-  // merge the result files
-  void MergeRes(VNAMES& vQNames, string& sDbPre);
-
   // init alignment parameters
-  void InitAlignPara(bool bType, long int lnSLen, long int nSNum);
+  void InitAlignPara();
 
   void PrintAln(vector<CHitUnit>& v, ofstream& of);
-  void PrintM8(vector<CHitUnit>& v, ofstream& of);
-  /*
-   template<class T>
-   void PrintXmlLine(char* sTag, T s);
-   void PrintXmlTag(char* sTag);
-   void PrintXmlTagR(char* sTag);
-   void PrintXmlBegin(string& sDb);
-   void PrintXml(vector<CHitUnit>& v, int nIdx);
-   void PrintXmlEnd();
-   */
+  void PrintM8(vector<CHitUnit>& v);
+
  private:
   uint m_unMer;
-  uint m_unDSize;
-  uint m_unQSize;
-  bool m_bSeqType;
-  // if dna, 6; if protein, 1
-  int m_nIdxScl;
-  uint m_unTotalIdx;
-  int m_nQueryType;
+  uint m_unTotalIdx;  // number of hash keys :hfchen
 
   uchar m_uMask;
   uchar m_uSeg;
@@ -268,7 +225,7 @@ class CHashSearch {
   VUINT m_vMutation;
 
   uint m_unTotalSeeds;
-  uint m_unTotalQuery;
+  //uint m_unTotalQuery;
   uint m_unTotalSubj;
 
   /* for output */
@@ -282,40 +239,26 @@ class CHashSearch {
   ofstream m_ofTemp;
   int m_nStdout;
 
-  bool m_bXml;
-  ofstream m_ofXml;
-  uint m_unXmlSp;
-  uint m_unXmlCnt;
-
-  //string m_sOutBase;
-  // store the ouput
- // string m_sOutput;
- // string m_sM8;
   vector<CIndex> m_vOutIdx;
   vector<CIndex> m_vM8Idx;
   long long m_llOutCum;
-  long long m_llM8Cum;
-  int m_nSeqBase;
+  //long long m_llM8Cum;
+  //int m_nSeqBase;
   string m_sLeft;
 
-  // for multithread
-  // int m_nThreadNum;
   BlastStat* m_vpBlastSig;
-  //vector<int> m_vBlastPt;  // -1 means available, 1 means used
 
   // for test on gap extension
   uint m_unGapExt;
   bool m_bAcc;
   bool m_bHssp;
   int m_nMinLen;
-  long int m_lnSeqNum;
-  long int m_lnTotalAa;
 
   // hssp criteria
   vector<int> m_vCriteria;
 
   /// haifengc
- public:
+ private:
   MINDEX vDHash;  // all k-mer of database
   VUINT vDLens;
   VUCHAR vDSeqs;
@@ -324,8 +267,10 @@ class CHashSearch {
   VUINT vDWordCnts;
   VCOMP vDComp;
   uint unDMedian;
+  long int lnDTotalSeqs;
   long int lnDTotalAa;
-
+  ofstream of;
+ public:
   void BuildProteinsIndex(const vector<uint32_t>& protienIDS,
                           const ProteinDB& proteinDB);
   void ProteinSearching(const vector<uint32_t>& proteinIDS,
@@ -336,9 +281,8 @@ class CHashSearch {
                         uint unQSize = 500000000, uint unMer = 6);
 };
 
-inline void CHashSearch::InitAlignPara(bool bType, long int lnSLen,
-                                       long int nSNum) {
-  m_vpBlastSig = new BlastStat(1, lnSLen, nSNum);
+inline void CHashSearch::InitAlignPara() {
+  m_vpBlastSig = new BlastStat(1, lnDTotalAa, lnDTotalSeqs);
 
   GapIni = GAPINI;
   GapExt = GAPEXT;
@@ -350,19 +294,7 @@ inline void CHashSearch::InitAlignPara(bool bType, long int lnSLen,
 
   UngapExtDropBits = 7;  //in bits
   GapExtDropBits = 15;  //in bits
-  if (m_bAcc == false) {
-    if (bType) {
-      UngapExtSCut = 12;  //blastx default for -f option
-    } else {
-      UngapExtSCut = 11;  //blastp default
-    }
-  } else {
-    if (bType) {
-      UngapExtSCut = 37;  //blastx default for -f option
-    } else {
-      UngapExtSCut = 11;  //blastp default
-    }
-  }
+  UngapExtSCut = 11;  //blastp default
 
   UngapExtDrop = m_vpBlastSig->Bits2RawScoreUngapped(UngapExtDropBits);
   GapExtDrop = m_vpBlastSig->Bits2RawScoreGapped(GapExtDropBits);

@@ -31,7 +31,6 @@ class CHitUnit {
   std::string sQ;
   std::string sInfo;
   std::string sD;
-
 };
 
 struct HitComptor {

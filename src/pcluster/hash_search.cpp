@@ -6,7 +6,6 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <map>
 #include <iomanip>
 #include <algorithm>
 #include <functional>
@@ -30,11 +29,17 @@ CHashSearch::CHashSearch() {
   // for any letter which is not in the 20 aa
   m_uMask = 10;
   m_uSeg = 8;
+  m_unMer = 6;
+  m_bFast = true;
+  m_unTotalIdx = static_cast<uint>(pow(10.0, int(m_unMer)));
+
   fill_n(m_aChar2Code, 256, (m_uMask << 4));
+  int xxxx = m_uMask << 4;
+  cout << "xxx " << xxxx << endl;
   fill_n(m_aCode2Char, 256, m_uMask);
   fill_n(m_aCode2Ten, 256, m_uMask);
   // read group info in aa.h and build mapping array
-  // defaultly use murphy10s
+  // default use murphy10s
   for (int i = 0; i < 500; ++i) {
     if ('\0' == murphy10s[i][0]) {
       break;
@@ -76,34 +81,20 @@ CHashSearch::CHashSearch() {
   m_pComptor = NULL;
 
   int LONGQUERY = 4096;
-//  if (0 == nThreadNum) {
-//    m_nThreadNum = 1;
-//  } else {
-//    m_nThreadNum = nThreadNum;
-//  }
   m_vTrace.assign(LONGQUERY, vector<char>(LONGQUERY));
   m_vETrace.assign(LONGQUERY, vector<char>(LONGQUERY));
   m_vDTrace.assign(LONGQUERY, vector<char>(LONGQUERY));
-  // m_vBlastPt.assign(m_nThreadNum, -1);
 
   m_unTotalSeeds = 0;
-  m_unTotalQuery = 0;
+  //m_unTotalQuery = 0;
   m_unTotalSubj = 0;
 
-  m_bSeqType = false;
-
-  // used for convert index from with-fram to non-frame
-  m_nIdxScl = 1;
-  m_nQueryType = 0;
-
- // m_sOutBase = "";
- // m_sOutput = "";
- // m_sOutput.reserve(100000000);
- // m_sM8 = "";
-  //m_sM8.reserve(50000000);
   m_llOutCum = 0;
-  m_llM8Cum = 0;
-  m_nSeqBase = 0;
+  //m_llM8Cum = 0;
+  //m_nSeqBase = 0;
+
+  lnDTotalSeqs = 0;
+  lnDTotalAa = 0;
 
   // for test on gap extension
   m_unGapExt = 0;
@@ -114,18 +105,8 @@ CHashSearch::CHashSearch() {
     float f = 290.15 * pow(i, -0.562);
     f = f * i / 100;
     m_vCriteria[i] = (int) ceil(f);
-
   }
-
-  m_unXmlSp = 0;
-  m_unXmlCnt = 1;
-  m_lnSeqNum = 0;
-  m_lnTotalAa = 0;
-  m_nStdout = 0;
-  m_sQFile = "";
-  m_sDFile = "";
-  m_sStartTime = "";
-  m_sLeft = "";
+  of.open("chen.out");
 }
 
 struct CompDbObj {
@@ -134,6 +115,7 @@ struct CompDbObj {
         m_vLens(vLens),
         m_unMer(unMer) {
   }
+
   bool operator()(const uint pos1, const uint pos2) const {
     // init paras
     int nIdx1 = pos1 >> 11;
@@ -169,16 +151,12 @@ struct CompDbObj {
 
 void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
                                      const ProteinDB& proteinDB) {
-  m_unMer = 6;
-  m_unTotalIdx = static_cast<uint>(pow(10.0, int(m_unMer)));
-
-  m_bFast = true;
-
   vDHash.assign(m_unTotalIdx, VUINT());  // all k-mer of database
   vDFreq.assign(strlen(murphy10r), 0);
   vDWordCnts.assign(m_unTotalIdx, 0);
   unDMedian = 0;
   lnDTotalAa = 0;
+  lnDTotalSeqs = protienIDS.size();
 
   vDLens.push_back(0);
   for (size_t i = 0; i < protienIDS.size(); ++i) {
@@ -197,13 +175,12 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
     for (uint j = vDLens[i]; j < vDLens[i + 1] - m_unMer; ++j) {
       int nIdx = Tran2Ten(vDSeqs, j);
       if (-1 != nIdx) {
-        // the left 21 bits denotes the index, the right 11 bits denotes the starting position of the seed
+        // the left 21 bits denotes the index,
+        // the right 11 bits denotes the starting position of the seed
         vDHash[nIdx].push_back((i << 11) | (j - vDLens[i]));
       }
     }
   }
-  //PrintInfo(vHash);
-  //PrintHash(vHash);
 
   vDComp.assign(m_unTotalIdx, VUSHORT());
   for (uint i = 0; i < vDHash.size(); ++i) {
@@ -244,10 +221,8 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
     }
   }
 
-  uint unDTotalWord = 0;
   for (uint i = 0; i < vDHash.size(); ++i) {
     vDWordCnts[i] += vDHash[i].size();
-    unDTotalWord += vDHash[i].size();
   }
 
   //serialize
@@ -290,14 +265,7 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
   m_bAcc = bAcc;
   m_bHssp = bHssp;
   m_nMinLen = nMinLen;
-  m_bXml = bXml;
 
-  m_unMer = 6;
-  m_unDSize = unDSize;
-  m_unQSize = unQSize;
-  m_unTotalIdx = static_cast<uint>(pow(10.0, int(m_unMer)));
-
-  m_bFast = true;
   if (true == m_bFast) {
     m_unMutSeedLen = 10;
     m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 4 - 1))));
@@ -313,13 +281,14 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
   }
 
   // set BlastStat
-  InitAlignPara(m_bSeqType, m_lnTotalAa, m_lnSeqNum);
+  InitAlignPara();
   // construct query package
   CDbPckg Db(vDHash, vDSeqs, vDLens, vDNames, vDComp, vDFreq, vDWordCnts,
              unDMedian);
   for (size_t i = 0; i < proteinIDS.size(); ++i) {
-    vector < uchar > vQSeqs;
-    vector < uint > vQLens;
+    cout << i << " " << proteinIDS.size() << endl;
+    vector<uchar> vQSeqs;
+    vector<uint> vQLens;
     VNAMES vQNames;
 
     vQLens.push_back(0);
@@ -328,6 +297,7 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
       vQSeqs.push_back(proteinDB.pro_seqs[i][j]);
     }
     vQLens.push_back(vQSeqs.size());
+    Encode(vQSeqs);
 
     // construct query package
     CQrPckg Query(vQSeqs, vQLens, vQNames);
@@ -338,30 +308,16 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
       m_vOutIdx[nn].m_llBeg = 0;
       m_vOutIdx[nn].m_nSize = 0;
     }
-    m_nSeqBase = 0;
-
-    m_unTotalQuery = vQLens.size() - 1;
-
     Searching(Query, Db);
-
-    m_nSeqBase += vQNames.size();
   }
 }
 
 void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
   uint32_t L = Query.m_vLens[1] - Query.m_vLens[0];
-  cout << "Query: ";
-  for (uint32_t i = 0; i < L; ++i) {
-    cout << Query.m_vSeqs[i];
-  }
-  cout << endl;
-
-
   int nFoundHit = 0;
   MRESULT mRes;
 
   int nQrIdx = 0;
-  int nQDnaIdx = nQrIdx / m_nIdxScl * m_nIdxScl;
 
   // original length of query
   uint unQLen = Query.m_vLens[nQrIdx + 1] - Query.m_vLens[nQrIdx];
@@ -371,26 +327,21 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
 
   int nQOriLen = unQLen;
 
-
   // set up BlastStat
   m_vpBlastSig->blastComputeLengthAdjustmentComp(unQLen);
-
 
   uchar* pQ = &Query.m_vSeqs[0] + Query.m_vLens[nQrIdx];
   CAlnPckg QrAln(pQ, unQLen, 0);
 
   // build invalid index position
-  cout << "LENLEN: ";
   vector<char> vValid(unQLen, 0);
-  for (uint xx = 0; xx < unQLen; ++xx) {
-    cout << pQ[xx];
-    vValid[xx] = m_aCode2Ten[pQ[xx]];
-    if (0 != (m_uSeg & pQ[xx])) {
-      pQ[xx] &= ~m_uSeg;
-      vValid[xx] = m_uMask;
+  for (uint i = 0; i < unQLen; ++i) {
+    vValid[i] = m_aCode2Ten[pQ[i]];
+    if (0 != (m_uSeg & pQ[i])) {
+      pQ[i] &= ~m_uSeg;
+      vValid[i] = m_uMask;
     }
   }
-  cout << endl;
 
   // for consistence with swift
   uint unPrvSdLen = 6;
@@ -404,6 +355,7 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
     }
     uint unLocalSeed = 0;
     uint unIdx = 0;
+    // get local seed length
     if (m_bAcc == false) {
       uint unIncr = 0;
       double dFold = 0.0;
@@ -459,7 +411,9 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
     }
 
     //#################################################
-    vector<uchar> vExtra(pQ + unQSeedBeg + m_unMer, pQ + unQSeedBeg + unLocalSeed);
+    //  after 6 AA
+    vector<uchar> vExtra(pQ + unQSeedBeg + m_unMer,
+                         pQ + unQSeedBeg + unLocalSeed);
     for (uint idx = 0; idx < vExtra.size(); ++idx) {
       vExtra[idx] = m_aCode2Ten[vExtra[idx]];
     }
@@ -884,13 +838,13 @@ bool CHashSearch::AlignSeqs(int nSeed, CAlnPckg& QrAln, CAlnPckg& DbAln,
     nQOff = QrAln.m_unSeedBeg - stAlnmnt.nQBwd;
     nDOff = DbAln.m_unSeedBeg - stAlnmnt.nDBwd;
     if (nQOff > 2 && nDOff > 2) {
-      vector < uchar > vQ;
+      vector<uchar> vQ;
       vQ.reserve(nQOff);
       for (int i = nQOff - 1; i >= 0; --i) {
         vQ.push_back(QrAln.m_pSeq[i]);
       }
       pQAlign = &vQ[0];
-      vector < uchar > vD;
+      vector<uchar> vD;
       vD.reserve(nDOff);
       for (int i = nDOff - 1; i >= 0; --i) {
         vD.push_back(DbAln.m_pSeq[i]);
@@ -1243,20 +1197,9 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
   //cout << nQIdx << endl;
   int nQSt = 0;
   int nQEd = 0;
-  if (m_bSeqType == true) {
-    if (nQIdx % m_nIdxScl < 3) {
-      nQSt = 3 * (unQSeedBeg - stAlnmnt.nQBwd) + nQIdx % m_nIdxScl + 1;
-      nQEd = 3 * (unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd)
-          + nQIdx % m_nIdxScl;
-    } else {
-      int nFrame = nQIdx % m_nIdxScl - 3;
-      nQSt = nQOriLen - (unQSeedBeg - stAlnmnt.nQBwd) * 3 - nFrame;
-      nQEd = nQSt - (stAlnmnt.nQBwd + unLocalSeedLen + stAlnmnt.nQFwd) * 3 + 1;
-    }
-  } else {
-    nQSt = unQSeedBeg - stAlnmnt.nQBwd + 1;
-    nQEd = unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd;
-  }
+
+  nQSt = unQSeedBeg - stAlnmnt.nQBwd + 1;
+  nQEd = unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd;
 
   // print aligned sequences
   uint nAllc = nTotAlnLen > unLocalSeedLen ? nTotAlnLen : unLocalSeedLen;
@@ -1312,14 +1255,13 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
     }
   }
 
-  MRESULT::iterator it = mRes.lower_bound(
-      pair<int, int>(nQIdx / m_nIdxScl, nDIdx));
+  MRESULT::iterator it = mRes.lower_bound(pair<int, int>(nQIdx, nDIdx));
   /****************************************************************/
   // for sum evalue, comment this
   // note: here, the hits are stored according to it's real query index, not 1->6 frame query index
   // store all results
-  if (mRes.end() != it && (*it).first.first == nQIdx / m_nIdxScl
-      && (*it).first.second == nDIdx && (*it).second.nFrame == nQIdx % m_nIdxScl
+  if (mRes.end() != it && (*it).first.first == nQIdx
+      && (*it).first.second == nDIdx && (*it).second.nFrame == 0
       && (*it).second.nQSt == unQSeedBeg - stAlnmnt.nQBwd
       && (*it).second.nDSt == unDSeedBeg - stAlnmnt.nDBwd
       && (*it).second.nQEd == unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd - 1
@@ -1344,9 +1286,7 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
   /****************************************************************/
   {
     MRESULT::iterator itTmp = mRes.insert(
-        it,
-        MRESULT::value_type(pair<int, int>(nQIdx / m_nIdxScl, nDIdx),
-                            CHitUnit()));
+        it, MRESULT::value_type(pair<int, int>(nQIdx, nDIdx), CHitUnit()));
     CHitUnit& st = (*itTmp).second;
     st.nQrLen = nQOriLen;
     st.nDbIdx = nDIdx;
@@ -1358,7 +1298,7 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
     st.nAlnLen = nTotAlnLen;
     st.nMismatch = nTotAlnLen - stAlnmnt.nMatch - nTotGap;
     st.nGapOpen = nGapOpen;
-    st.nFrame = nQIdx % m_nIdxScl;
+    st.nFrame = 0;
     st.nQSt = unQSeedBeg - stAlnmnt.nQBwd;
     st.nQEd = unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd - 1;
     st.nQBeg = nQSt;
@@ -1386,7 +1326,7 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
   MIT it = mRes.begin();
   int nQrIdx = (*it).first.first;
   MRESULT::iterator itFind = mRes.end();
-  vector < CHitUnit > vTemp;
+  vector<CHitUnit> vTemp;
   vTemp.reserve(distance(it, itFind));
 
   // for sum evalue, comment this
@@ -1487,10 +1427,10 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
 //    oa << vTemp;
 
     // muMonitor.lock();
-   // long long llBeg = m_llOutCum + m_sOutput.size();
+    // long long llBeg = m_llOutCum + m_sOutput.size();
     // m_sOutput += sOutput.str();
-   // int nSize = m_llOutCum + m_sOutput.size() - llBeg;
-   // m_vOutIdx[m_nSeqBase + nQrIdx].m_llBeg = llBeg;
+    // int nSize = m_llOutCum + m_sOutput.size() - llBeg;
+    // m_vOutIdx[m_nSeqBase + nQrIdx].m_llBeg = llBeg;
     //m_vOutIdx[m_nSeqBase + nQrIdx].m_nSize = nSize;
 //    if (m_sOutput.size() > 100000000) {
 //      m_ofTemp << m_sOutput;
@@ -1499,7 +1439,7 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
 //    }
     // muMonitor.unlock();
   }
-
+  PrintM8(mRes);
   mRes.clear();
 }
 
@@ -1516,7 +1456,7 @@ void CHashSearch::SumEvalue(vector<CHitUnit>& v, int nSt, int nEd, int nLen) {
   int nDisPos = distance(itSt, itDir);
   int nDisNeg = distance(itDir, itEd);
   if (nDisPos > 1 || nDisNeg > 1) {
-    vector < CHitUnit > vRes;
+    vector<CHitUnit> vRes;
     STIT itStart = itSt;
     STIT itEnd = itDir;
     for (int i = 0; i < 2; ++i) {
@@ -1537,7 +1477,7 @@ void CHashSearch::SumEvalue(vector<CHitUnit>& v, int nSt, int nEd, int nLen) {
       sort(itStart, itEnd, CompQSt());
       stable_sort(itStart, itEnd, ComptorWrapper(m_pComptor));
       // check overlap and logevalue
-      vector < CHitUnit > vNew;
+      vector<CHitUnit> vNew;
       vNew.push_back(*itStart);
       for (STIT itTemp = itStart + 1; itTemp != itEnd; ++itTemp) {
         int nHalfLen = (itTemp->nQEd - itTemp->nQSt + 1) >> 1;
@@ -1613,63 +1553,6 @@ void CHashSearch::SumEvalue(vector<CHitUnit>& v, int nSt, int nEd, int nLen) {
   }
 }
 
-void CHashSearch::MergeRes(VNAMES& vQNames, string& sDbPre) {
-  ofstream poAln("chenha...aln");
-  ofstream poM8("chenhaifeng.test.m8");
-
-  if (poM8) {
-    poM8 << "# RAPSearch\n# Job submitted: " << m_sStartTime << "# Query : "
-        << m_sQFile << "\n" << "# Subject : " << m_sDFile << "\n";
-    if (m_bLogE == true) {
-      poM8
-          << "# Fields: Query\tSubject\tidentity\taln-len\tmismatch\tgap-openings\tq.start\tq.end\ts.start\ts.end\tlog(e-value)\tbit-score\n";
-    } else {
-      poM8
-          << "# Fields: Query\tSubject\tidentity\taln-len\tmismatch\tgap-openings\tq.start\tq.end\ts.start\ts.end\te-value\tbit-score\n";
-    }
-  }
-
-  long long unMax = max(m_nMaxOut, m_nMaxM8);
-  vector < CHitUnit > v;
-  string sName = "chenhaifeng.test.llll";
-  CMergeUnit* vMergeUnit = new CMergeUnit(sName.c_str());
-
-  int nLastIdx = 0;
-  nLastIdx = max(nLastIdx, vMergeUnit->GetLast());
-
-  /**************************************************************/
-  for (int i = 0; i < nLastIdx; ++i) {
-
-    vMergeUnit->Update(i, v);
-
-    /***********************************************************/
-    if (0 == v.size()) {
-      if (poAln && true == m_bPrintEmpty) {
-        poAln << vQNames[i] << "\tNO HIT" << "\n\n";
-      }
-      continue;
-    }
-    /***********************************************************/
-
-    uint n = min(unMax, (long long) v.size());
-    partial_sort(v.begin(), v.begin() + n, v.end(), ComptorWrapper(m_pComptor));
-    v.resize(n);
-
-    if (poAln) {
-      PrintAln(v, poAln);
-    }
-
-    if (poM8) {
-      PrintM8(v, poM8);
-    }
-
-    v.clear();
-  }
-
-  delete vMergeUnit;
-
-}
-
 void CHashSearch::PrintAln(vector<CHitUnit>& v, ofstream& of) {
   int nPrint = min((long long) v.size(), m_nMaxOut);
   for (int i = 0; i < nPrint; ++i) {
@@ -1682,27 +1565,27 @@ void CHashSearch::PrintAln(vector<CHitUnit>& v, ofstream& of) {
       of << " E-value=" << c.dEValue;
     }
     of << " identity=" << c.dIdent << "%" << " aln-len=" << c.nAlnLen
-        << " mismatch=" << c.nMismatch << " gap-openings=" << c.nGapOpen
-        << " nFrame=" << c.nFrame << "\n" << "Query:\t" << c.sQ << "\n"
-        << "      \t" << c.sInfo << "\n" << "Sbjct:\t" << c.sD << "\n" << "\n";
+       << " mismatch=" << c.nMismatch << " gap-openings=" << c.nGapOpen
+       << " nFrame=" << c.nFrame << "\n" << "Query:\t" << c.sQ << "\n"
+       << "      \t" << c.sInfo << "\n" << "Sbjct:\t" << c.sD << "\n" << "\n";
   }
 }
 
-void CHashSearch::PrintM8(vector<CHitUnit>& v, ofstream& of) {
+void CHashSearch::PrintM8(vector<CHitUnit>& v) {
   int nPrint = min((long long) v.size(), m_nMaxM8);
   for (int i = 0; i < nPrint; ++i) {
     CHitUnit& c = v[i];
 
     of << c.sQName << "\t" << c.sDName << setprecision(1)
-        << setiosflags(ios::fixed) << "\t" << c.dIdent << "\t" << c.nAlnLen
-        << "\t" << c.nMismatch << "\t" << c.nGapOpen << "\t" << c.nQBeg << "\t"
-        << c.nQEnd << "\t" << c.nDSt << "\t" << c.nDEd;
+       << setiosflags(ios::fixed) << "\t" << c.dIdent << "\t" << c.nAlnLen
+       << "\t" << c.nMismatch << "\t" << c.nGapOpen << "\t" << c.nQBeg << "\t"
+       << c.nQEnd << "\t" << c.nDSt << "\t" << c.nDEd;
     if (m_bLogE == true) {
       of << setprecision(1) << setiosflags(ios::fixed) << "\t" << c.dEValue;
     } else {
       if (c.dEValue < 0.01) {
         of << setprecision(1) << setiosflags(ios::scientific)
-            << setiosflags(ios::fixed) << "\t" << c.dEValue;
+           << setiosflags(ios::fixed) << "\t" << c.dEValue;
         of << resetiosflags(ios::scientific);
       } else if (c.dEValue < 10.0) {
         of << setprecision(2) << setiosflags(ios::fixed) << "\t" << c.dEValue;
