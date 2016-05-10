@@ -7,12 +7,11 @@
 
 #include <algorithm>
 #include <iostream>
-#include <boost/lexical_cast.hpp>
-#include <boost/serialization/vector.hpp>
+//#include <boost/lexical_cast.hpp>
+//#include <boost/serialization/vector.hpp>
 #include "mergeUnit.h"
 using namespace std;
-using namespace boost;
-
+//using namespace boost;
 
 
 CMergeUnit::CMergeUnit(const char* szFile)
@@ -23,12 +22,12 @@ CMergeUnit::CMergeUnit(const char* szFile)
 		cout << "can not open temp file..." << endl;
 	}
 	
-	m_sFile.assign(szFile);
+	//m_sFile.assign(szFile);
 
-	ifstream ifIdx((m_sFile+".idx").c_str());
-	archive::binary_iarchive ia(ifIdx);
-	ia >> m_vIdx;
-	ifIdx.close();
+	//ifstream ifIdx((m_sFile+".idx").c_str());
+	//archive::binary_iarchive ia(ifIdx);
+	//ia >> m_vIdx;
+//	ifIdx.close();
 }
 
 
@@ -39,12 +38,12 @@ void CMergeUnit::Update(int nID, vector<CHitUnit>& v)
 		return;
 	}
 
-	m_ifFile.seekg(m_vIdx[nID].m_llBeg, ios::beg);
-	archive::binary_iarchive ia(m_ifFile);
-	vector<CHitUnit> vIn;
-	ia >> vIn;
-
-	v.insert(v.end(), vIn.begin(), vIn.end());
+//	m_ifFile.seekg(m_vIdx[nID].m_llBeg, ios::beg);
+//	archive::binary_iarchive ia(m_ifFile);
+//	vector<CHitUnit> vIn;
+////	ia >> vIn;
+//
+//	v.insert(v.end(), vIn.begin(), vIn.end());
 }
 
 int CMergeUnit::GetLast()

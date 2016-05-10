@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
+//#include <boost/archive/binary_oarchive.hpp>
+//#include <boost/archive/binary_iarchive.hpp>
 #include "hitUnit.h"
 #include "cindex.h"
 

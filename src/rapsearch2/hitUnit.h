@@ -2,8 +2,8 @@
 #define __HITUNIT_H__
 
 #include <string>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
+//#include <boost/archive/binary_oarchive.hpp>
+//#include <boost/archive/binary_iarchive.hpp>
 
 
 
@@ -15,33 +15,33 @@ public:
 		return (c1.dEValue<c2.dEValue);
 	}
 
-	friend class boost::serialization::access;
-	template<class Archive>
-	void serialize(Archive& ar, const unsigned int version)
-	{
-		ar & nQrLen;
-		ar & nDbIdx;
-		ar & nDbLen;
-		ar & nScore;
-		ar & dBits;
-		ar & dEValue;
-		ar & dIdent;
-		ar & nAlnLen;
-		ar & nMismatch;
-		ar & nGapOpen;
-		ar & nFrame;
-		ar & nQSt;
-		ar & nQEd;
-		ar & nQBeg;
-		ar & nQEnd;
-		ar & nDSt;
-		ar & nDEd;
-		ar & sQName;
-		ar & sDName;
-		ar & sQ;
-		ar & sInfo;
-		ar & sD;
-	}
+//	friend class boost::serialization::access;
+//	template<class Archive>
+//	void serialize(Archive& ar, const unsigned int version)
+//	{
+//		ar & nQrLen;
+//		ar & nDbIdx;
+//		ar & nDbLen;
+//		ar & nScore;
+//		ar & dBits;
+//		ar & dEValue;
+//		ar & dIdent;
+//		ar & nAlnLen;
+//		ar & nMismatch;
+//		ar & nGapOpen;
+//		ar & nFrame;
+//		ar & nQSt;
+//		ar & nQEd;
+//		ar & nQBeg;
+//		ar & nQEnd;
+//		ar & nDSt;
+//		ar & nDEd;
+//		ar & sQName;
+//		ar & sDName;
+//		ar & sQ;
+//		ar & sInfo;
+//		ar & sD;
+//	}
 
 public:
 	int nQrLen;

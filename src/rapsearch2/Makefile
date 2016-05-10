@@ -33,14 +33,13 @@ LIBS := -L ./
 all: rapsearch prerapsearch pcluster
 
 rapsearch: main.cpp $(objects)
-	$(CXX) $(CXXFLAGS) -o rapsearch main.cpp $(objects) $(INC) $(LIBS) -lboost_serialization -lpthread -lboost_thread -lboost_system -lboost_chrono
+	$(CXX) $(CXXFLAGS) -o rapsearch main.cpp $(objects) $(INC) $(LIBS)
 
 prerapsearch: BuildHash.cpp $(objects)
-	$(CXX) $(CXXFLAGS) -o prerapsearch BuildHash.cpp $(objects) $(INC) $(LIBS) -lboost_serialization -lpthread -lboost_thread -lboost_system -lboost_chrono
+	$(CXX) $(CXXFLAGS) -o prerapsearch BuildHash.cpp $(objects) $(INC) $(LIBS)
 
 pcluster: pcluster.cpp $(objects)
-	$(CXX) $(CXXFLAGS) -o pcluster pcluster.cpp $(objects) $(INC) $(LIBS) $(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o) \
-	-lboost_serialization -lpthread -lboost_thread -lboost_system -lboost_chrono
+	$(CXX) $(CXXFLAGS) -o pcluster pcluster.cpp $(objects) $(INC) $(LIBS) $(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
 $(objects) : %.o : %.cpp
 	$(CXX) -c $(CXXFLAGS) $< -o $@ $(INC)

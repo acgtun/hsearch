@@ -8,17 +8,18 @@
 #include <sstream>
 #include <string>
 #include <map>
+#include <iomanip>
 #include <algorithm>
 #include <functional>
 #include <iterator>
 #include <numeric>
-#include <boost/lexical_cast.hpp>
-#include <boost/lambda/lambda.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/bind.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/chrono/thread_clock.hpp>
-#include "threadpool.hpp"
+//#include <boost/static_cast.hpp>
+//#include <boost/lambda/lambda.hpp>
+//#include <boost/serialization/vector.hpp>
+//#include <boost/bind.hpp>
+//#include <boost/thread/mutex.hpp>
+//#include <boost/chrono/thread_clock.hpp>
+//#include "threadpool.hpp"
 #include "weight.h"
 #include "aa.h"
 #include "n2a.h"
@@ -26,10 +27,10 @@
 
 
 using namespace std;
-using namespace boost;
-using namespace boost::threadpool;
+//using namespace boost;
+//using namespace boost::threadpool;
 
-boost::mutex muMonitor;
+//boost::mutex muMonitor;
 
 const ushort ONEBYTE = 15;
 const ushort TWOBYTE = 255;
@@ -86,11 +87,11 @@ CHashSearch::CHashSearch(int nThreadNum) {
   m_pComptor = NULL;
 
   int LONGQUERY = 4096;
-  if (0 == nThreadNum) {
-    m_nThreadNum = 1;
-  } else {
-    m_nThreadNum = nThreadNum;
-  }
+//  if (0 == nThreadNum) {
+//    m_nThreadNum = 1;
+//  } else {
+//    m_nThreadNum = nThreadNum;
+//  }
   m_vTrace.assign(LONGQUERY, vector<char>(LONGQUERY));
   m_vETrace.assign(LONGQUERY, vector<char>(LONGQUERY));
   m_vDTrace.assign(LONGQUERY, vector<char>(LONGQUERY));
@@ -180,7 +181,7 @@ struct CompDbObj {
 void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
                                      const ProteinDB& proteinDB) {
   m_unMer = 6;
-  m_unTotalIdx = lexical_cast<uint> (pow(10.0, int(m_unMer)));
+  m_unTotalIdx = static_cast<uint> (pow(10.0, int(m_unMer)));
 
   long int lnSeqNum = 0;
   long int lnAaNum = 0;
@@ -307,27 +308,27 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
   m_unMer = 6;
   m_unDSize = unDSize;
   m_unQSize = unQSize;
-  m_unTotalIdx = lexical_cast<uint> (pow(10.0, int(m_unMer)));
+  m_unTotalIdx = static_cast<uint> (pow(10.0, int(m_unMer)));
 
   m_bFast = true;
   if (true == m_bFast) {
     m_unMutSeedLen = 10;
     m_vMutation.push_back(
-        lexical_cast<uint> (pow(10.0, int(m_unMer - 4 - 1))));
+        static_cast<uint> (pow(10.0, int(m_unMer - 4 - 1))));
     m_vMutation.push_back(
-        lexical_cast<uint> (pow(10.0, int(m_unMer - 5 - 1))));
+        static_cast<uint> (pow(10.0, int(m_unMer - 5 - 1))));
     m_vMutation.push_back(
-        lexical_cast<uint> (pow(10.0, int(m_unMer - 3 - 1))));
+        static_cast<uint> (pow(10.0, int(m_unMer - 3 - 1))));
     if (m_unMer > 6) {
       m_vMutation.push_back(
-          lexical_cast<uint> (pow(10.0, int(m_unMer - 6 - 1))));
+          static_cast<uint> (pow(10.0, int(m_unMer - 6 - 1))));
     }
   } else {
     m_unMutSeedLen = 9;
     m_vMutation.push_back(
-        lexical_cast<uint> (pow(10.0, int(m_unMer - 3 - 1))));
+        static_cast<uint> (pow(10.0, int(m_unMer - 3 - 1))));
     m_vMutation.push_back(
-        lexical_cast<uint> (pow(10.0, int(m_unMer - 5 - 1))));
+        static_cast<uint> (pow(10.0, int(m_unMer - 5 - 1))));
   }
 
   // set BlastStat
@@ -1565,9 +1566,9 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query,
 
     st.sInfo.insert(0, 7, ' ');
 
-    string sQNum = lexical_cast < string > (st.nQBeg);
-    st.sQ = string(nBegStrAligned - sQNum.size(), ' ') + sQNum + " " + st.sQ
-        + " " + lexical_cast < string > (st.nQEnd);
+    //string sQNum = static_cast < string > (st.nQBeg);
+   // st.sQ = string(nBegStrAligned - sQNum.size(), ' ') + sQNum + " " + st.sQ
+        //+ " " + static_cast < string > (st.nQEnd);
 
     ++st.nDSt;
     ++st.nDEd;
@@ -1578,9 +1579,9 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query,
     }
     st.nDSt = 1848 * nFac + st.nDSt;
     st.nDEd = 1848 * nFac + st.nDEd;
-    string sDNum = lexical_cast < string > (st.nDSt);
-    st.sD = string(nBegStrAligned - sDNum.size(), ' ') + sDNum + " " + st.sD
-        + " " + lexical_cast < string > (st.nDEd);
+    //string sDNum = static_cast < string > (st.nDSt);
+   // st.sD = string(nBegStrAligned - sDNum.size(), ' ') + sDNum + " " + st.sD
+     //   + " " + static_cast < string > (st.nDEd);
 
     st.sQName = Query.m_vNames[nQrIdx];
     st.sDName = Db.m_vNames[st.nDbIdx];
@@ -1613,13 +1614,13 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query,
     }
     vTemp.resize(nl);
 
-    stringstream sOutput;
-    archive::binary_oarchive oa(sOutput);
-    oa << vTemp;
+//    stringstream sOutput;
+//    archive::binary_oarchive oa(sOutput);
+//    oa << vTemp;
 
-    muMonitor.lock();
+   // muMonitor.lock();
     long long llBeg = m_llOutCum + m_sOutput.size();
-    m_sOutput += sOutput.str();
+   // m_sOutput += sOutput.str();
     int nSize = m_llOutCum + m_sOutput.size() - llBeg;
     m_vOutIdx[m_nSeqBase + nQrIdx].m_llBeg = llBeg;
     m_vOutIdx[m_nSeqBase + nQrIdx].m_nSize = nSize;
@@ -1628,7 +1629,7 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query,
       m_llOutCum += m_sOutput.size();
       m_sOutput.clear();
     }
-    muMonitor.unlock();
+   // muMonitor.unlock();
   }
 
   mRes.clear();
@@ -1746,78 +1747,39 @@ void CHashSearch::SumEvalue(vector<CHitUnit>& v, int nSt, int nEd, int nLen) {
   }
 }
 
-void CHashSearch::MergeRes(int nDbBlockNum, VNAMES& vQNames, string& sDbPre) {
-  ostream* poAln = NULL;
-  ostream* poM8 = NULL;
+void CHashSearch::MergeRes(VNAMES& vQNames, string& sDbPre) {
+  ofstream poAln("chenha...aln");
+  ofstream poM8("chenhaifeng.test.m8");
 
-  if (m_nStdout == 2) {
-    poAln = &cout;
-  } else if (!m_sOutBase.empty() && m_nMaxOut != 0) {
-    poAln = new ofstream((m_sOutBase + ".aln").c_str());
-    if (!poAln->good()) {
-      ((ofstream*) poAln)->close();
-      delete poAln;
-      cout << "can not open the file: " << m_sOutBase + ".aln" << endl;
-      exit(1);
-    }
-  }
-
-  if (m_nStdout == 1) {
-    poM8 = &cout;
-  } else if (!m_sOutBase.empty() && m_nMaxM8 != 0) {
-    poM8 = new ofstream((m_sOutBase + ".m8").c_str());
-    if (!poM8->good()) {
-      ((ofstream*) poM8)->close();
-      delete poM8;
-      cout << "can not open the file: " << m_sOutBase + ".m8" << endl;
-      exit(1);
-    }
-  }
-
-  if (poM8 && !m_sStartTime.empty()) {
-    (*poM8) << "# RAPSearch\n# Job submitted: " << m_sStartTime << "# Query : "
+  if (poM8) {
+    poM8 << "# RAPSearch\n# Job submitted: " << m_sStartTime << "# Query : "
         << m_sQFile << "\n" << "# Subject : " << m_sDFile << "\n";
     if (m_bLogE == true) {
-      (*poM8)
+      poM8
           << "# Fields: Query\tSubject\tidentity\taln-len\tmismatch\tgap-openings\tq.start\tq.end\ts.start\ts.end\tlog(e-value)\tbit-score\n";
     } else {
-      (*poM8)
+      poM8
           << "# Fields: Query\tSubject\tidentity\taln-len\tmismatch\tgap-openings\tq.start\tq.end\ts.start\ts.end\te-value\tbit-score\n";
     }
-
-    m_sStartTime = "";
   }
-
-//  if (m_bXml) {
-//    m_ofXml.open((m_sOutBase + ".xml").c_str());
-//    PrintXmlBegin(sDbPre);
-//  }
 
   long long unMax = max(m_nMaxOut, m_nMaxM8);
-  vector<CHitUnit> v;
-  vector<CMergeUnit*> vMergeUnit;
-
-  for (int i = 0; i < nDbBlockNum; ++i) {
-    string sName = m_sOutBase + ".tmp" + lexical_cast < string > (i);
-    CMergeUnit* p = new CMergeUnit(sName.c_str());
-    vMergeUnit.push_back(p);
-  }
+  vector < CHitUnit > v;
+  string sName = "chenhaifeng.test.llll";
+  CMergeUnit* vMergeUnit = new CMergeUnit(sName.c_str());
 
   int nLastIdx = 0;
-  for (int i = 0; i < nDbBlockNum; ++i) {
-    nLastIdx = max(nLastIdx, vMergeUnit[i]->GetLast());
-  }
+  nLastIdx = max(nLastIdx, vMergeUnit->GetLast());
 
   /**************************************************************/
   for (int i = 0; i < nLastIdx; ++i) {
-    for (int j = 0; j < nDbBlockNum; ++j) {
-      vMergeUnit[j]->Update(i, v);
-    }
+
+    vMergeUnit->Update(i, v);
 
     /***********************************************************/
     if (0 == v.size()) {
       if (poAln && true == m_bPrintEmpty) {
-        (*poAln) << vQNames[i] << "\tNO HIT" << "\n\n";
+        poAln << vQNames[i] << "\tNO HIT" << "\n\n";
       }
       continue;
     }
@@ -1828,35 +1790,22 @@ void CHashSearch::MergeRes(int nDbBlockNum, VNAMES& vQNames, string& sDbPre) {
     v.resize(n);
 
     if (poAln) {
-      PrintAln(v, *poAln);
+      PrintAln(v, poAln);
     }
 
     if (poM8) {
-      PrintM8(v, *poM8);
+      PrintM8(v, poM8);
     }
 
     v.clear();
   }
 
-  for (int i = 0; i < nDbBlockNum; ++i) {
-    delete vMergeUnit[i];
-  }
+  delete vMergeUnit;
 
-  if (poAln && m_nStdout != 2) {
-    ((ofstream*) poAln)->close();
-    delete poAln;
-    poAln = NULL;
-  }
-
-  if (poM8 && m_nStdout != 1) {
-    ((ofstream*) poM8)->close();
-    delete poM8;
-    poM8 = NULL;
-  }
 }
 
 
-void CHashSearch::PrintAln(vector<CHitUnit>& v, ostream& of) {
+void CHashSearch::PrintAln(vector<CHitUnit>& v, ofstream& of) {
   int nPrint = min((long long) v.size(), m_nMaxOut);
   for (int i = 0; i < nPrint; ++i) {
     CHitUnit& c = v[i];
@@ -1874,7 +1823,7 @@ void CHashSearch::PrintAln(vector<CHitUnit>& v, ostream& of) {
   }
 }
 
-void CHashSearch::PrintM8(vector<CHitUnit>& v, ostream& of) {
+void CHashSearch::PrintM8(vector<CHitUnit>& v, ofstream& of) {
   int nPrint = min((long long) v.size(), m_nMaxM8);
   for (int i = 0; i < nPrint; ++i) {
     CHitUnit& c = v[i];

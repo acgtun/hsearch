@@ -205,13 +205,13 @@ class CHashSearch {
   void GuessTotSeq(const char* szFile, long int& lnSeqNum, long int& lnAaNum);
 
   // merge the result files
-  void MergeRes(int nDbBlockNum, VNAMES& vQNames, string& sDbPre);
+  void MergeRes(VNAMES& vQNames, string& sDbPre);
 
   // init alignment parameters
   void InitAlignPara(bool bType, long int lnSLen, long int nSNum);
 
-  void PrintAln(vector<CHitUnit>& v, ostream& of);
-  void PrintM8(vector<CHitUnit>& v, ostream& of);
+  void PrintAln(vector<CHitUnit>& v, ofstream& of);
+  void PrintM8(vector<CHitUnit>& v, ofstream& of);
 /*
   template<class T>
   void PrintXmlLine(char* sTag, T s);
@@ -300,7 +300,7 @@ class CHashSearch {
   string m_sLeft;
 
   // for multithread
-  int m_nThreadNum;
+  // int m_nThreadNum;
   BlastStat* m_vpBlastSig;
   //vector<int> m_vBlastPt;  // -1 means available, 1 means used
 
