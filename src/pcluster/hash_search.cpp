@@ -13,11 +13,11 @@
 #include <iterator>
 #include <numeric>
 
-#include "HashSearch.hpp"
+#include "merge_unit.hpp"
+#include "hash_search.hpp"
 #include "weight.hpp"
 #include "aa.hpp"
 #include "n2a.hpp"
-#include "mergeUnit.hpp"
 
 using namespace std;
 
@@ -96,10 +96,10 @@ CHashSearch::CHashSearch() {
   m_nIdxScl = 1;
   m_nQueryType = 0;
 
-  m_sOutBase = "";
-  m_sOutput = "";
-  m_sOutput.reserve(100000000);
-  m_sM8 = "";
+ // m_sOutBase = "";
+ // m_sOutput = "";
+ // m_sOutput.reserve(100000000);
+ // m_sM8 = "";
   //m_sM8.reserve(50000000);
   m_llOutCum = 0;
   m_llM8Cum = 0;
@@ -243,7 +243,7 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
       vDComp[i].push_back(nSuff);
     }
   }
-  //cout << "hehfsdehlk'" << endl;
+
   uint unDTotalWord = 0;
   for (uint i = 0; i < vDHash.size(); ++i) {
     vDWordCnts[i] += vDHash[i].size();
@@ -348,21 +348,19 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
   }
 }
 
-// rewrite this part
 void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
-  //cout << k << endl;
-  //cout << "my id:\t" << this_thread::get_id() << endl;
-  //int nTreadID = m_mThreadID[this_thread::get_id()];
-  //BlastStat* pBlastSig = m_vpBlastSig[m_mThreadID[this_thread::get_id()]];
+  uint32_t L = Query.m_vLens[1] - Query.m_vLens[0];
+  cout << "Query: ";
+  for (uint32_t i = 0; i < L; ++i) {
+    cout << Query.m_vSeqs[i];
+  }
+  cout << endl;
+
 
   int nFoundHit = 0;
-  //using namespace boost::chrono;
-  //thread_clock::time_point start = thread_clock::now();
-
   MRESULT mRes;
 
   int nQrIdx = 0;
-  // the index of frame 0
   int nQDnaIdx = nQrIdx / m_nIdxScl * m_nIdxScl;
 
   // original length of query
@@ -372,47 +370,32 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
   }
 
   int nQOriLen = unQLen;
-  if (true == m_bSeqType) {
-    nQOriLen = 3 * (Query.m_vLens[nQDnaIdx + 1] - Query.m_vLens[nQDnaIdx]);
-    for (int n = 1; n < 3; ++n) {
-      if (Query.m_vLens[nQDnaIdx + n + 1] - Query.m_vLens[nQDnaIdx + n]
-          == Query.m_vLens[nQDnaIdx + n] - Query.m_vLens[nQDnaIdx + n - 1]) {
-        ++nQOriLen;
-      } else {
-        break;
-      }
-    }
-  }
+
 
   // set up BlastStat
-  if (true == m_bSeqType) {
-    // the index of the first seq considering the direction
-    int n = nQrIdx / 3 * 3;
-    m_vpBlastSig->blastComputeLengthAdjustmentComp(
-        Query.m_vLens[n + 1] - Query.m_vLens[n]);
-  } else {
-    m_vpBlastSig->blastComputeLengthAdjustmentComp(unQLen);
-  }
+  m_vpBlastSig->blastComputeLengthAdjustmentComp(unQLen);
+
 
   uchar* pQ = &Query.m_vSeqs[0] + Query.m_vLens[nQrIdx];
   CAlnPckg QrAln(pQ, unQLen, 0);
 
   // build invalid index position
+  cout << "LENLEN: ";
   vector<char> vValid(unQLen, 0);
   for (uint xx = 0; xx < unQLen; ++xx) {
+    cout << pQ[xx];
     vValid[xx] = m_aCode2Ten[pQ[xx]];
     if (0 != (m_uSeg & pQ[xx])) {
       pQ[xx] &= ~m_uSeg;
       vValid[xx] = m_uMask;
     }
   }
+  cout << endl;
 
   // for consistence with swift
   uint unPrvSdLen = 6;
-
   for (uint i = 0; i < unQLen - m_unMer; ++i) {
     uint unCnt = 0;
-    //thread_clock::time_point st = thread_clock::now();
     // pick seed length
     uint unQSeedBeg = QrAln.m_unSeedBeg = i;
     int nSeed = Tran2Ten(QrAln, vValid);
@@ -426,7 +409,6 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
       double dFold = 0.0;
       int nLeft = unQLen - unQSeedBeg - m_unMer;
       uint unRng = nLeft + 1 >= 3 ? 3 : nLeft + 1;
-      //uint unFreq = Db.m_vHash[nSeed].size();
       uint unFreq = Db.m_vWordCnts[nSeed];
       if (unFreq <= Db.m_unMedian) {
         unLocalSeed = m_unMer;
@@ -476,8 +458,8 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
       }
     }
 
-    vector < uchar
-        > vExtra(pQ + unQSeedBeg + m_unMer, pQ + unQSeedBeg + unLocalSeed);
+    //#################################################
+    vector<uchar> vExtra(pQ + unQSeedBeg + m_unMer, pQ + unQSeedBeg + unLocalSeed);
     for (uint idx = 0; idx < vExtra.size(); ++idx) {
       vExtra[idx] = m_aCode2Ten[vExtra[idx]];
     }
@@ -564,91 +546,10 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
         unCnt += nCnt;
       }
     }
-    //[>*******************************************************<]
-    //thread_clock::time_point ed = thread_clock::now();
-    //cout << nStep << "\t" << i << "\t" << unCnt << "\tduration:\t" << duration_cast<microseconds>(ed-st).count() << " ms" << endl;
   }
 
   PrintRes(mRes, Query, Db);
 }
-
-struct CompSeed {
-  CompSeed(CDbPckg& Db, uint unMer, uchar* aCode2Ten)
-      : m_Db(Db),
-        m_unMer(unMer),
-        m_aCode2Ten(aCode2Ten) {
-  }
-  bool operator()(const uint& unPos, const vector<uchar>& vExtra) {
-    uint unIdx = unPos >> 11;
-    uint unDSeedBeg = unPos & 0x000007FF;
-    uint unDLen = m_Db.m_vLens[unIdx + 1] - m_Db.m_vLens[unIdx];
-    uchar* pD = &m_Db.m_vSeqs[0] + m_Db.m_vLens[unIdx];
-    int nDOff = unDLen - unDSeedBeg - m_unMer;
-
-    bool bLess = false;
-    int nLeast = vExtra.size();
-    int nDiff = nDOff >= nLeast ? nLeast : nDOff;
-
-    if (0 == nDiff) {
-      bLess = true;
-    } else {
-      uint i = m_unMer;
-      for (; i < m_unMer + nDiff; ++i) {
-        if (m_aCode2Ten[pD[unDSeedBeg + i]] != vExtra[i - m_unMer]) {
-          bLess = (m_aCode2Ten[pD[unDSeedBeg + i]] < vExtra[i - m_unMer]);
-          break;
-        }
-      }
-      // if they are the same for nLeast letters
-      if (i == m_unMer + nDiff && bLess == false
-          && m_aCode2Ten[pD[unDSeedBeg + i - 1]] == vExtra[i - 1 - m_unMer]) {
-        if (nDiff < nLeast) {
-          bLess = true;
-        } else {
-          bLess = false;
-        }
-      }
-    }
-    return bLess;
-  }
-
-  bool operator()(const vector<uchar>& vExtra, uint& unPos) {
-    uint unIdx = unPos >> 11;
-    uint unDSeedBeg = unPos & 0x000007FF;
-    uint unDLen = m_Db.m_vLens[unIdx + 1] - m_Db.m_vLens[unIdx];
-    uchar* pD = &m_Db.m_vSeqs[0] + m_Db.m_vLens[unIdx];
-    int nDOff = unDLen - unDSeedBeg - m_unMer;
-
-    bool bLess = false;
-    int nLeast = vExtra.size();
-    int nDiff = nDOff >= nLeast ? nLeast : nDOff;
-
-    if (0 == nDiff) {
-      bLess = false;
-    } else {
-      uint i = m_unMer;
-      for (; i < m_unMer + nDiff; ++i) {
-        if (m_aCode2Ten[pD[unDSeedBeg + i]] != vExtra[i - m_unMer]) {
-          bLess = (vExtra[i - m_unMer] < m_aCode2Ten[pD[unDSeedBeg + i]]);
-          break;
-        }
-      }
-      if (i == m_unMer + nDiff && bLess == false
-          && m_aCode2Ten[pD[unDSeedBeg + i - 1]] == vExtra[i - 1 - m_unMer]) {
-        if (nDiff > nLeast) {
-          bLess = true;
-        } else {
-          bLess = false;
-        }
-      }
-    }
-    return bLess;
-  }
-
-  CDbPckg& m_Db;
-  uint m_unMer;
-  uchar* m_aCode2Ten;
-};
 
 struct CompShortLow {
   bool operator()(const ushort& s1, const ushort& s2) {
@@ -1093,9 +994,9 @@ int CHashSearch::AlignGapped(uchar *seq1, uchar *seq2, int M, int N, int *ext1,
   int bb_pre, be_pre;
   //these two parameters will be adjusted during the alignment based on the dropoff score
 
-  vector < vector<char> > &trace = m_vTrace;
-  vector < vector<char> > &etrace = m_vETrace;
-  vector < vector<char> > &dtrace = m_vDTrace;
+  vector<vector<char> > &trace = m_vTrace;
+  vector<vector<char> > &etrace = m_vETrace;
+  vector<vector<char> > &dtrace = m_vDTrace;
 
   // the aligning sequences may be longer than 4096
   bool bModify = false;
@@ -1586,16 +1487,16 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
 //    oa << vTemp;
 
     // muMonitor.lock();
-    long long llBeg = m_llOutCum + m_sOutput.size();
+   // long long llBeg = m_llOutCum + m_sOutput.size();
     // m_sOutput += sOutput.str();
-    int nSize = m_llOutCum + m_sOutput.size() - llBeg;
-    m_vOutIdx[m_nSeqBase + nQrIdx].m_llBeg = llBeg;
-    m_vOutIdx[m_nSeqBase + nQrIdx].m_nSize = nSize;
-    if (m_sOutput.size() > 100000000) {
-      m_ofTemp << m_sOutput;
-      m_llOutCum += m_sOutput.size();
-      m_sOutput.clear();
-    }
+   // int nSize = m_llOutCum + m_sOutput.size() - llBeg;
+   // m_vOutIdx[m_nSeqBase + nQrIdx].m_llBeg = llBeg;
+    //m_vOutIdx[m_nSeqBase + nQrIdx].m_nSize = nSize;
+//    if (m_sOutput.size() > 100000000) {
+//      m_ofTemp << m_sOutput;
+//      m_llOutCum += m_sOutput.size();
+//      m_sOutput.clear();
+//    }
     // muMonitor.unlock();
   }
 

@@ -3,10 +3,10 @@
 
 #include "read_proteins.hpp"
 
-#include "HashSearch.hpp"
+#include "hash_search.hpp"
 
-#include "./../smithlab_cpp/smithlab_os.hpp"
-#include "./../smithlab_cpp/OptionParser.hpp"
+#include "smithlab_os.hpp"
+#include "OptionParser.hpp"
 
 void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
   clock_t start = clock();

@@ -10,11 +10,11 @@
 #include <algorithm>
 
 #include "read_proteins.hpp"
-#include "BlastStat.hpp"
+#include "blast_stat.hpp"
 #include "paras.hpp"
 #include "cindex.hpp"
-#include "hitUnit.hpp"
-#include "Seg.hpp"
+#include "hit_unit.hpp"
+#include "seg.hpp"
 
 using namespace std;
 
@@ -287,10 +287,10 @@ class CHashSearch {
   uint m_unXmlSp;
   uint m_unXmlCnt;
 
-  string m_sOutBase;
+  //string m_sOutBase;
   // store the ouput
-  string m_sOutput;
-  string m_sM8;
+ // string m_sOutput;
+ // string m_sM8;
   vector<CIndex> m_vOutIdx;
   vector<CIndex> m_vM8Idx;
   long long m_llOutCum;
@@ -406,7 +406,6 @@ inline void CHashSearch::Decode(const vector<uchar>& v, string& sOut) {
 }
 
 inline void CHashSearch::Encode(vector<uchar>& v) {
-  //cout << v.size() << endl;
   for (uint i = 0; i < v.size(); ++i) {
     v[i] = m_aChar2Code[v[i]];
   }
@@ -414,7 +413,6 @@ inline void CHashSearch::Encode(vector<uchar>& v) {
 
 inline long int CHashSearch::Encode(vector<uchar>& v, vector<double>& vFreq) {
   long int lnTotalAa = 0;
-  //cout << v.size() << endl;
   for (uint i = 0; i < v.size(); ++i) {
     v[i] = m_aChar2Code[v[i]];
     if (m_uMask != v[i]) {

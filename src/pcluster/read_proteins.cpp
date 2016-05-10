@@ -1,7 +1,7 @@
 #include "read_proteins.hpp"
 
-#include "./../smithlab_cpp/smithlab_os.hpp"
-#include "./../smithlab_cpp/OptionParser.hpp"
+#include "smithlab_os.hpp"
+#include "OptionParser.hpp"
 
 void ProteinDB::ReadFASTAFile() {
   ifstream fin(file_name.c_str());

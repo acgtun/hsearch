@@ -7,7 +7,7 @@
 
 #include <algorithm>
 #include <iostream>
-#include "mergeUnit.hpp"
+#include "merge_unit.hpp"
 using namespace std;
 //using namespace boost;
 
