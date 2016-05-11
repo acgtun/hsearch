@@ -34,6 +34,36 @@ void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
     hash_buckets[klsh_low.GetHashValue(p)].push_back(i);
   }
   fprintf(stderr, "[NUMBER OF PRE-GROUPS %lu]\n", hash_buckets.size());
+//#define BUCKETSIZE
+#ifdef BUCKETSIZE
+  uint32_t num_of_proteins = 0;
+  map<uint32_t, uint32_t> bucket_size;
+  map<uint32_t, uint32_t> bucket_length;
+
+  for (HASH_BUCKETS::iterator it = hash_buckets.begin();
+      it != hash_buckets.end(); ++it) {
+    num_of_proteins += it->second.size();
+    bucket_size[it->second.size()]++;
+    uint32_t length = 0;
+    for (uint32_t i = 0; i < it->second.size(); ++i) {
+      length += proteinDB.pro_seqs[it->second[i]].size();
+    }
+    bucket_length[length]++;
+  }
+  cout << "num_of_proteins = " << num_of_proteins << endl;
+  ofstream fout("size.txt");
+  for (map<uint32_t, uint32_t>::iterator it = bucket_size.begin();
+      it != bucket_size.end(); ++it) {
+    fout << it->first << " " << it->second << endl;
+  }
+  fout.close();
+  fout.open("length.txt");
+  for (map<uint32_t, uint32_t>::iterator it = bucket_length.begin();
+      it != bucket_length.end(); ++it) {
+    fout << it->first << " " << it->second << endl;
+  }
+  fout.close();
+#endif
 #ifdef DEBUG
   for (HASH_BUCKETS::iterator it = hash_buckets.begin();
       it != hash_buckets.end(); ++it) {
@@ -45,8 +75,9 @@ void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
   }
 #endif
 
-  printf("[Locality-Sensitive Hashing Pre-Clustering TAKES %lf SECONDS]\n",
-         (clock() - start) / (double) CLOCKS_PER_SEC);
+  fprintf(stderr,
+          "[Locality-Sensitive Hashing Pre-Clustering TAKES %lf SECONDS]\n",
+          (clock() - start) / (double) CLOCKS_PER_SEC);
 }
 
 int main(int argc, const char *argv[]) {
@@ -81,23 +112,13 @@ int main(int argc, const char *argv[]) {
 
     /* number of threads for mapping */
     int num_of_threads = 1;
-
-    double dLogEvalueCut = DEFAULT_LOGEVALTHRESH;
     int nMaxHitPer = 500;
     int nMaxAlnPer = 100;
-    int nQueryType = 2;
-    bool bPrintEmpty = false;
-    bool bGapExt = true;
-    bool bAcc = false;
     bool bHssp = false;
     int nMinLen = 0;
-    int bXml = false;
-    int nStdout = 0;
-    double dBitsCut = 0.0;
-    bool bBitsCut = false;
-    bool bLogE = true;
-    bool bEvalue = true;
-    double dThr = dLogEvalueCut;
+    //bool bLogE = false;
+    //bool bEvalue = true;
+    double dThr = 10.0;
 
     /****************** COMMAND LINE OPTIONS ********************/
     OptionParser opt_parse(strip_path(argv[0]), "cluster protein sequences",
@@ -131,10 +152,10 @@ int main(int argc, const char *argv[]) {
         proteinDB.num_of_proteins);
     HASH_BUCKETS hash_buckets;
     PreClustering(proteinDB, hash_buckets);
-
     //////////////////////
     // CLUSTERING
     uint32_t group_id = 0;
+    CHashSearch hs(output_file, dThr, nMaxAlnPer, nMaxHitPer, bHssp, nMinLen);
     for (HASH_BUCKETS::iterator it = hash_buckets.begin();
         it != hash_buckets.end(); ++it) {
       clock_t start = clock();
@@ -142,11 +163,10 @@ int main(int argc, const char *argv[]) {
               hash_buckets.size());
       fprintf(stderr, "[THE NUMBER OF SEQUENCES IN THIS GROUP IS %lu]\n",
               it->second.size());
-      CHashSearch hs;
-      hs.BuildProteinsIndex(it->second, proteinDB);
-      hs.ProteinSearching(it->second, proteinDB, bEvalue, bLogE, dThr,
-                          nMaxAlnPer, nMaxHitPer, nQueryType, bPrintEmpty,
-                          bGapExt, bAcc, bHssp, nMinLen, bXml);
+      if (it->second.size() > 1) {
+        hs.BuildProteinsIndex(it->second, proteinDB);
+        hs.ProteinSearching(it->second, proteinDB);
+      }
       fprintf(stderr, "[CLUSTERING TAKES %lf SECONDS]\n",
               (clock() - start) / (double) CLOCKS_PER_SEC);
     }

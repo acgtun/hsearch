@@ -19,7 +19,7 @@ class CHitUnit {
   int nAlnLen;
   int nMismatch;
   int nGapOpen;
-  int nFrame;
+  //int nFrame;
   int nQSt;
   int nQEd;
   int nQBeg;
@@ -38,11 +38,11 @@ struct HitComptor {
   virtual bool operator()(const CHitUnit& st1, const CHitUnit& st2) const = 0;
 };
 
-struct CompFrame : HitComptor {
-  virtual bool operator()(const CHitUnit& st1, const CHitUnit& st2) const {
-    return st1.nFrame < st2.nFrame;
-  }
-};
+//struct CompFrame : HitComptor {
+//  virtual bool operator()(const CHitUnit& st1, const CHitUnit& st2) const {
+//    return st1.nFrame < st2.nFrame;
+//  }
+//};
 
 struct CompQSt : HitComptor {
   virtual bool operator()(const CHitUnit& st1, const CHitUnit& st2) const {

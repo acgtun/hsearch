@@ -12,7 +12,6 @@
 #include <iterator>
 #include <numeric>
 
-#include "merge_unit.hpp"
 #include "hash_search.hpp"
 #include "weight.hpp"
 #include "aa.hpp"
@@ -25,12 +24,12 @@ const ushort TWOBYTE = 255;
 const ushort THRBYTE = 4095;
 const ushort FOUBYTE = 65535;
 
-CHashSearch::CHashSearch() {
+CHashSearch::CHashSearch(const string& output_file, double dThr, int nMaxOut,
+                         int nMaxM8, bool bHssp, int nMinLen) {
   // for any letter which is not in the 20 aa
   m_uMask = 10;
   m_uSeg = 8;
   m_unMer = 6;
-  m_bFast = true;
   m_unTotalIdx = static_cast<uint>(pow(10.0, int(m_unMer)));
 
   fill_n(m_aChar2Code, 256, (m_uMask << 4));
@@ -70,32 +69,25 @@ CHashSearch::CHashSearch() {
       }
     }
   }
+
   m_aChar2Code['.'] = (10 << 4);
   m_aCode2Char[(10 << 4)] = '.';
   m_aCode2Ten[(10 << 4)] = m_uMask;
   m_aCode2Char['-'] = '-';
 
-  m_pBlastSig = NULL;
   m_pComptor = NULL;
+  m_pBlastSig = NULL;
 
   int LONGQUERY = 4096;
   m_vTrace.assign(LONGQUERY, vector<char>(LONGQUERY));
   m_vETrace.assign(LONGQUERY, vector<char>(LONGQUERY));
   m_vDTrace.assign(LONGQUERY, vector<char>(LONGQUERY));
 
-  m_unTotalSeeds = 0;
-  //m_unTotalQuery = 0;
-  m_unTotalSubj = 0;
-
-  m_llOutCum = 0;
-  //m_llM8Cum = 0;
-  //m_nSeqBase = 0;
-
   lnDTotalSeqs = 0;
   lnDTotalAa = 0;
 
-  // for test on gap extension
   m_unGapExt = 0;
+  GapExtSCut = 0;
 
   // hssp
   m_vCriteria.assign(100, 0);
@@ -104,7 +96,41 @@ CHashSearch::CHashSearch() {
     f = f * i / 100;
     m_vCriteria[i] = (int) ceil(f);
   }
-  of.open("chen.out");
+
+  vDHash.assign(m_unTotalIdx, VUINT());  // all k-mer of database
+  vDFreq.assign(strlen(murphy10r), 0);
+  vDWordCnts.assign(m_unTotalIdx, 0);
+  vDComp.assign(m_unTotalIdx, VUSHORT());
+
+  //m_bEvalue = bEvalue;
+  // m_bLogE = bLogE;
+
+  m_pComptor = new CompEval();
+
+  m_dThr = dThr;
+  if (nMaxOut == -1) {
+    m_nMaxOut = LLONG_MAX;
+  } else {
+    m_nMaxOut = abs(nMaxOut);
+  }
+  if (nMaxM8 == -1) {
+    m_nMaxM8 = LLONG_MAX;
+  } else {
+    m_nMaxM8 = abs(nMaxM8);
+  }
+
+  m_bHssp = bHssp;
+  m_nMinLen = nMinLen;
+
+  m_unMutSeedLen = 10;
+  m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 4 - 1))));
+  m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 5 - 1))));
+  m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 3 - 1))));
+
+  string str_m8 = output_file + ".m8";
+  string str_aln = output_file + ".aln";
+  fm8.open(str_m8.c_str());
+  faln.open(str_aln.c_str());
 }
 
 struct CompDbObj {
@@ -149,9 +175,19 @@ struct CompDbObj {
 
 void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
                                      const ProteinDB& proteinDB) {
-  vDHash.assign(m_unTotalIdx, VUINT());  // all k-mer of database
-  vDFreq.assign(strlen(murphy10r), 0);
-  vDWordCnts.assign(m_unTotalIdx, 0);
+  for (uint i = 0; i < m_unTotalIdx; ++i) {
+    vDWordCnts[i] = 0;
+    vDHash[i].clear();
+    vDComp[i].clear();
+  }
+  for (uint i = 0; i < vDFreq.size(); ++i) {
+    vDFreq[i] = 0;
+  }
+
+  vDLens.clear();
+  vDSeqs.clear();
+  vDNames.clear();
+
   unDMedian = 0;
   lnDTotalAa = 0;
   lnDTotalSeqs = protienIDS.size();
@@ -182,7 +218,6 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
     }
   }
 
-  vDComp.assign(m_unTotalIdx, VUSHORT());
   for (uint i = 0; i < vDHash.size(); ++i) {
     sort(vDHash[i].begin(), vDHash[i].end(),
          CompDbObj(vDSeqs, vDLens, m_unMer));
@@ -222,7 +257,7 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
   }
 
   for (uint i = 0; i < vDHash.size(); ++i) {
-    vDWordCnts[i] += vDHash[i].size();
+    vDWordCnts[i] = vDHash[i].size();
   }
 
   //serialize
@@ -235,50 +270,7 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
 }
 
 void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
-                                   const ProteinDB& proteinDB, bool bEvalue,
-                                   bool bLogE, double dThr, int nMaxOut,
-                                   int nMaxM8, int nQueryTypeq,
-                                   bool bPrintEmpty, bool bGapExt, bool bAcc,
-                                   bool bHssp, int nMinLen, bool bXml,
-                                   uint unDSize, uint unQSize, uint unMer) {
-  m_bEvalue = bEvalue;
-  m_bLogE = bLogE;
-  if (m_bEvalue == true) {
-    m_pComptor = new CompEval();
-  } else {
-    m_pComptor = new CompBits();
-  }
-  m_dThr = dThr;
-  if (nMaxOut == -1) {
-    m_nMaxOut = LLONG_MAX;
-  } else {
-    m_nMaxOut = abs(nMaxOut);
-  }
-  if (nMaxM8 == -1) {
-    m_nMaxM8 = LLONG_MAX;
-  } else {
-    m_nMaxM8 = abs(nMaxM8);
-  }
-
-  m_bPrintEmpty = false;
-  m_bGapExt = bGapExt;
-  m_bAcc = bAcc;
-  m_bHssp = bHssp;
-  m_nMinLen = nMinLen;
-
-  if (true == m_bFast) {
-    m_unMutSeedLen = 10;
-    m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 4 - 1))));
-    m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 5 - 1))));
-    m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 3 - 1))));
-    if (m_unMer > 6) {
-      m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 6 - 1))));
-    }
-  } else {
-    m_unMutSeedLen = 9;
-    m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 3 - 1))));
-    m_vMutation.push_back(static_cast<uint>(pow(10.0, int(m_unMer - 5 - 1))));
-  }
+                                   const ProteinDB& proteinDB) {
 
   // set BlastStat
   InitAlignPara();
@@ -292,24 +284,16 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
 
     vQLens.push_back(0);
     vQNames.push_back(proteinDB.pro_names[i]);
-    of << "Query: ";
+    fm8 << proteinDB.pro_names[i] << endl;
     for (size_t j = 0; j < proteinDB.pro_seqs[i].size(); ++j) {
       vQSeqs.push_back(proteinDB.pro_seqs[i][j]);
-      of << proteinDB.pro_seqs[i][j];
     }
-    of << endl;
     vQLens.push_back(vQSeqs.size());
     Encode(vQSeqs);
 
     // construct query package
     CQrPckg Query(vQSeqs, vQLens, vQNames);
-    int nSeqNum = 1;
-    m_vOutIdx.assign(nSeqNum, CIndex());
 
-    for (int nn = 0; nn < nSeqNum; ++nn) {
-      m_vOutIdx[nn].m_llBeg = 0;
-      m_vOutIdx[nn].m_nSize = 0;
-    }
     Searching(Query, Db);
   }
 }
@@ -322,7 +306,7 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
   int nQrIdx = 0;
 
   // original length of query
-  uint unQLen = Query.m_vLens[nQrIdx + 1] - Query.m_vLens[nQrIdx];
+  uint unQLen = Query.m_vLens[1] - Query.m_vLens[0];
   if (unQLen < m_unMer) {
     return;
   }
@@ -330,9 +314,9 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
   int nQOriLen = unQLen;
 
   // set up BlastStat
-  m_vpBlastSig->blastComputeLengthAdjustmentComp(unQLen);
+  m_pBlastSig->blastComputeLengthAdjustmentComp(unQLen);
 
-  uchar* pQ = &Query.m_vSeqs[0] + Query.m_vLens[nQrIdx];
+  uchar* pQ = &Query.m_vSeqs[0];
   CAlnPckg QrAln(pQ, unQLen, 0);
 
   // build invalid index position
@@ -355,61 +339,20 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
     if (-1 == nSeed) {
       continue;
     }
-    uint unLocalSeed = 0;
+
     uint unIdx = 0;
-    // get local seed length
-    if (m_bAcc == false) {
-      uint unIncr = 0;
-      double dFold = 0.0;
-      int nLeft = unQLen - unQSeedBeg - m_unMer;
-      uint unRng = nLeft + 1 >= 3 ? 3 : nLeft + 1;
-      uint unFreq = Db.m_vWordCnts[nSeed];
-      if (unFreq <= Db.m_unMedian) {
-        unLocalSeed = m_unMer;
-      } else {
-        double dExpFreq = unFreq;
-        for (unIncr = 1; unIncr < unRng; unIncr++) {
-          if ((unIdx = vValid[unQSeedBeg + m_unMer + unIncr - 1]) != m_uMask) {
-            dFold = Db.m_vFreq[unIdx];
-          } else {
-            //dFold = 1.0 / strlen(murphy10r);
-            break;
-          }
-          dExpFreq *= dFold;
-          if (dExpFreq <= Db.m_unMedian) {
-            break;
-          }
-        }
-        unLocalSeed = m_unMer + unIncr;
+    uint unLocalSeed = 10;
+    // no enough letters
+    if (unQSeedBeg + unLocalSeed > unQLen) {
+      continue;
+    }
+    for (uint i = m_unMer; i < unLocalSeed; ++i) {
+      if ((unIdx = vValid[unQSeedBeg + i]) == m_uMask) {
+        break;
       }
-
-      // if there is a unacceptable char, give up this seed
-      if (m_uMask == unIdx) {
-        continue;
-      }
-
-      if (unLocalSeed < unPrvSdLen - 1) {
-        unLocalSeed = unPrvSdLen - 1;
-      }
-
-      // no enough letters
-      if (unQSeedBeg + unLocalSeed > unQLen) {
-        continue;
-      }
-    } else {
-      unLocalSeed = 10;
-      // no enough letters
-      if (unQSeedBeg + unLocalSeed > unQLen) {
-        continue;
-      }
-      for (uint i = m_unMer; i < unLocalSeed; ++i) {
-        if ((unIdx = vValid[unQSeedBeg + i]) == m_uMask) {
-          break;
-        }
-      }
-      if (m_uMask == unIdx) {
-        continue;
-      }
+    }
+    if (m_uMask == unIdx) {
+      continue;
     }
 
     //#################################################
@@ -429,77 +372,6 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
         unPrvSdLen = unLocalSeed;
       } else {
         unPrvSdLen = m_unMer;
-      }
-    }
-
-    if (m_bAcc == true) {
-      continue;
-    }
-
-    // mutation, pos: 4, 5, 3, (6)
-    // check whether or not the length is enough
-    if (unQLen < unQSeedBeg + m_unMutSeedLen) {
-      continue;
-    }
-    // check non-aa char
-    for (uint j = unQSeedBeg + unLocalSeed; j < unQSeedBeg + m_unMutSeedLen;
-        ++j) {
-      if ((unIdx = vValid[j]) == m_uMask) {
-        break;
-      }
-    }
-    if (m_uMask == unIdx) {
-      continue;
-    }
-
-    vExtra.assign(pQ + unQSeedBeg + m_unMer, pQ + unQSeedBeg + m_unMutSeedLen);
-    for (uint idx = 0; idx < vExtra.size(); ++idx) {
-      vExtra[idx] = m_aCode2Ten[vExtra[idx]];
-    }
-
-    for (uint m = 0; m < m_vMutation.size(); ++m) {
-      int nVal = (nSeed / m_vMutation[m]) % 10;
-      int nMutIdx = nSeed - nVal * m_vMutation[m];
-      for (int n = 0; n < 10; ++n) {
-        if (nMutIdx == nSeed) {
-          nMutIdx += m_vMutation[m];
-          continue;
-        }
-
-        if (Db.m_vHash[nMutIdx].empty()) {
-          nMutIdx += m_vMutation[m];
-          continue;
-        }
-
-        int nCnt = ExtendSeq2Set(nMutIdx, m_unMutSeedLen, vExtra, nQrIdx, QrAln,
-                                 nQOriLen, vValid, Db.m_vHash[nMutIdx], Db,
-                                 Query.m_vNames, Db.m_vNames, mRes);
-        nFoundHit += nCnt;
-        unCnt += nCnt;
-
-        nMutIdx += m_vMutation[m];
-      }
-    }
-
-    /*********************************************************/
-    if (6 == m_unMer && m_unMutSeedLen > m_unMer) {
-      // mutation pos 6
-      // think it as a mutation at pos 5, then do set intersection with current seed set
-      //int nBase = (nQrIdx % 100000) * 10;
-      int nNextNum = m_aCode2Ten[QrAln.m_pSeq[QrAln.m_unSeedBeg + m_unMer]];
-      for (int i = 0; i < 10; ++i) {
-        if (i == nNextNum) {
-          // if the mutation is equal to the original next char
-          continue;
-        }
-
-        // change the 6th position
-        vExtra[0] = i;
-        int nCnt = ExtendSeq2Set(nSeed, m_unMutSeedLen, vExtra, nQrIdx, QrAln,
-                                 nQOriLen, vValid, Db.m_vHash[nSeed], Db,
-                                 Query.m_vNames, Db.m_vNames, mRes);
-        nFoundHit += nCnt;
-        unCnt += nCnt;
       }
     }
   }
@@ -683,14 +555,6 @@ int CHashSearch::ExtendSeq2Set(int nSeed, uint unLocalSeedLen,
     if (unDLen < unDSeedBeg + unLocalSeedLen) {
       continue;
     }
-    // have the same previous char, so don't extend them at this time
-    if (4 != vExtra.size()	// if this is a mutation case, do not allow to ignore it
-    && m_bAcc == false && 0 != QrAln.m_unSeedBeg && 0 != unDSeedBeg
-        && m_aCode2Ten[QrAln.m_pSeq[QrAln.m_unSeedBeg - 1]]
-            == m_aCode2Ten[pD[unDSeedBeg - 1]]
-        && m_uMask != vValid[QrAln.m_unSeedBeg - 1]) {
-      continue;
-    }
 
     CAlnPckg DbAln(pD, unDLen, unDSeedBeg);
 
@@ -803,67 +667,6 @@ bool CHashSearch::AlignSeqs(int nSeed, CAlnPckg& QrAln, CAlnPckg& DbAln,
   if (stAlnmnt.nScore < GapExtSCut) {
     //cout << "less than cut off" << endl;
     return true;
-  }
-
-  if (m_bAcc == false && true == m_bGapExt) {
-    ++m_unGapExt;
-    //cout << "1 hit ..." << endl;
-    // vector for alignment path
-    vector<char> vMode;
-    vector<short> vLen;
-
-    // forward gapped alignment
-    int exta = 0;
-    int extb = 0;
-    int gap = 0;
-    int nQOff = QrAln.m_unSeedBeg + unSeedLen + stAlnmnt.nQFwd;
-    int nDOff = DbAln.m_unSeedBeg + unSeedLen + stAlnmnt.nDFwd;
-    nQLeft = QrAln.m_unLen - nQOff;
-    nDLeft = DbAln.m_unLen - nDOff;
-    if (nQLeft > 2 && nDLeft > 2) {
-      pQAlign = QrAln.m_pSeq + nQOff;
-      pDAlign = DbAln.m_pSeq + nDOff;
-      int n1 = AlignGapped(pQAlign, pDAlign, nQLeft, nDLeft, &exta, &extb,
-                           &match_f, &gap, vMode, vLen);
-      if (n1 > 0) {
-        stAlnmnt.nScore += n1;
-        stAlnmnt.nMatch += match_f;
-        stAlnmnt.nQFwd += exta;
-        stAlnmnt.nDFwd += extb;
-        stAlnmnt.vMode.insert(stAlnmnt.vMode.end(), vMode.rbegin(),
-                              vMode.rend());
-        stAlnmnt.vLen.insert(stAlnmnt.vLen.end(), vLen.rbegin(), vLen.rend());
-      }
-    }
-
-    // backward gapped alignment
-    nQOff = QrAln.m_unSeedBeg - stAlnmnt.nQBwd;
-    nDOff = DbAln.m_unSeedBeg - stAlnmnt.nDBwd;
-    if (nQOff > 2 && nDOff > 2) {
-      vector<uchar> vQ;
-      vQ.reserve(nQOff);
-      for (int i = nQOff - 1; i >= 0; --i) {
-        vQ.push_back(QrAln.m_pSeq[i]);
-      }
-      pQAlign = &vQ[0];
-      vector<uchar> vD;
-      vD.reserve(nDOff);
-      for (int i = nDOff - 1; i >= 0; --i) {
-        vD.push_back(DbAln.m_pSeq[i]);
-      }
-      pDAlign = &vD[0];
-      int n2 = AlignGapped(pQAlign, pDAlign, nQOff, nDOff, &exta, &extb,
-                           &match_b, &gap, vMode, vLen);
-      if (n2 > 0) {
-        stAlnmnt.nScore += n2;
-        stAlnmnt.nMatch += match_b;
-        stAlnmnt.nQBwd += exta;
-        stAlnmnt.nDBwd += extb;
-        stAlnmnt.vMode.insert(stAlnmnt.vMode.begin(), vMode.begin(),
-                              vMode.end());
-        stAlnmnt.vLen.insert(stAlnmnt.vLen.begin(), vLen.begin(), vLen.end());
-      }
-    }
   }
 
   return true;
@@ -1162,13 +965,8 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
                          int nDIdx, uchar* pD, uint unDSeedBeg, CDbPckg& Db,
                          uint unLocalSeedLen, STAlnmnt& stAlnmnt,
                          MRESULT& mRes) {
-  double dEValue = 0.0;
-  if (m_bLogE == true) {
-    dEValue = m_vpBlastSig->rawScore2ExpectLog(stAlnmnt.nScore);
-  } else {
-    dEValue = m_vpBlastSig->rawScore2Expect(stAlnmnt.nScore);
-  }
-  double dBits = m_vpBlastSig->rawScore2Bit(stAlnmnt.nScore);
+  double dEValue = m_pBlastSig->rawScore2Expect(stAlnmnt.nScore);
+  double dBits = m_pBlastSig->rawScore2Bit(stAlnmnt.nScore);
 
   int nTotGap = 0;
   int nGapOpen = 0;
@@ -1184,13 +982,9 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
 
   // evalue criteria
   if (m_bHssp == false
-      && !(stAlnmnt.nScore > SUMHSP_MINRAWSCORE
-          || (m_bEvalue == true && dEValue <= m_dThr)
-          || (m_bEvalue == false && dBits >= m_dThr))) {
+      && !(stAlnmnt.nScore > SUMHSP_MINRAWSCORE || dEValue <= m_dThr)) {
     return;
-  }
-  // hssp criteria
-  else if (m_bHssp == true
+  } else if (m_bHssp == true
       && (nTotAlnLen < m_nMinLen || stAlnmnt.nMatch < m_vCriteria[nTotAlnLen])) {
     return;
   }
@@ -1263,7 +1057,7 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
   // note: here, the hits are stored according to it's real query index, not 1->6 frame query index
   // store all results
   if (mRes.end() != it && (*it).first.first == nQIdx
-      && (*it).first.second == nDIdx && (*it).second.nFrame == 0
+      && (*it).first.second == nDIdx
       && (*it).second.nQSt == unQSeedBeg - stAlnmnt.nQBwd
       && (*it).second.nDSt == unDSeedBeg - stAlnmnt.nDBwd
       && (*it).second.nQEd == unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd - 1
@@ -1300,7 +1094,6 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
     st.nAlnLen = nTotAlnLen;
     st.nMismatch = nTotAlnLen - stAlnmnt.nMatch - nTotGap;
     st.nGapOpen = nGapOpen;
-    st.nFrame = 0;
     st.nQSt = unQSeedBeg - stAlnmnt.nQBwd;
     st.nQEd = unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd - 1;
     st.nQBeg = nQSt;
@@ -1368,8 +1161,7 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
   vector<CHitUnit>::iterator itSt = vTemp.begin();
   for (; itSt != itPrint; ++itSt) {
     CHitUnit& st = *itSt;
-    if ((m_bEvalue == true && st.dEValue > m_dThr)
-        || (m_bEvalue == false && st.dBits < m_dThr)) {
+    if (st.dEValue > m_dThr) {
       break;
     }
     // note: here, the hits are stored according to it's real query index, not 1->6 frame query index
@@ -1419,134 +1211,96 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
   }
 
   PrintM8(vTemp);
+  PrintAln(vTemp);
   mRes.clear();
 }
 
 void CHashSearch::SumEvalue(vector<CHitUnit>& v, int nSt, int nEd, int nLen) {
   typedef vector<CHitUnit>::iterator STIT;
-  STIT itSt = v.begin() + nSt;
-  STIT itEd = v.begin() + nEd;
-  // sort by nFrame
-  sort(itSt, itEd, CompFrame());
-  CHitUnit st;
-  st.nFrame = 3;
-  STIT itDir = lower_bound(itSt, itEd, st, CompFrame());
-  // if there are more than one hit in one direction
-  int nDisPos = distance(itSt, itDir);
-  int nDisNeg = distance(itDir, itEd);
-  if (nDisPos > 1 || nDisNeg > 1) {
-    vector<CHitUnit> vRes;
-    STIT itStart = itSt;
-    STIT itEnd = itDir;
-    for (int i = 0; i < 2; ++i) {
-      if (distance(itStart, itEnd) == 0) {
-        itStart = itEnd;
-        itEnd = itEd;
-        continue;
-      } else if (distance(itStart, itEnd) == 1) {
-        if ((m_bEvalue == true && itStart->dEValue <= m_dThr)
-            || (m_bEvalue == false && itStart->dBits >= m_dThr)) {
-          vRes.push_back(*itStart);
-        }
-        itStart = itEnd;
-        itEnd = itEd;
-        continue;
-      }
-      // sort by score and start position of query
-      sort(itStart, itEnd, CompQSt());
-      stable_sort(itStart, itEnd, ComptorWrapper(m_pComptor));
-      // check overlap and logevalue
-      vector<CHitUnit> vNew;
-      vNew.push_back(*itStart);
-      for (STIT itTemp = itStart + 1; itTemp != itEnd; ++itTemp) {
-        int nHalfLen = (itTemp->nQEd - itTemp->nQSt + 1) >> 1;
-        int nOverlap = SUMHSP_OVERLAP < nHalfLen ? SUMHSP_OVERLAP : nHalfLen;
-        if (itTemp->dEValue >= SUMHSP_MINEVALUE
-            && itTemp->nScore <= SUMHSP_MINRAWSCORE) {
-          continue;
-        }
-        bool bNonOvlp = true;
-        for (STIT itIso = vNew.begin(); itIso != vNew.end(); ++itIso) {
-          if ((itTemp->nQSt <= itIso->nQEd - nOverlap
-              && itTemp->nQEd >= itIso->nQSt + nOverlap)
-              || (itIso->nQSt <= itTemp->nQEd - nOverlap
-                  && itIso->nQEd >= itTemp->nQSt + nOverlap)) {
-            bNonOvlp = false;
-            break;
-          }
-        }
-        if (true == bNonOvlp) {
-          vNew.push_back(*itTemp);
-        }
-      }
-      if (vNew.size() == 1) {
-        if ((m_bEvalue == true && vNew[0].dEValue <= m_dThr)
-            || (m_bEvalue == false && vNew[0].dBits >= m_dThr)) {
-          vRes.push_back(vNew[0]);
-        }
-        //continue;
-      } else {
-        // calculate the sum of evalue
-        double aRawScore[DEFAULT_SCORE_TOP];
-        int nNo = 0;
-        for (; nNo < 5 && nNo < vNew.size(); ++nNo) {
-          aRawScore[nNo] = vNew[nNo].nScore;
-        }
 
-        if (m_bEvalue == true) {
-          double dTmp = m_vpBlastSig->sumScore2Expect(nNo, aRawScore, nLen);
-          double dSumEvalue = -10000.00;
-          if (0 != dTmp) {
-            dSumEvalue = log(dTmp) / LOG10;
-          }
-          if (m_bLogE == false) {
-            dSumEvalue = dTmp;
-          }
-          // modify the logevalue
-          if (dSumEvalue < m_dThr) {
-            for (uint i = 0; i < vNew.size(); ++i) {
-              vNew[i].dEValue = dSumEvalue;
-            }
-            vRes.insert(vRes.end(), vNew.begin(), vNew.end());
-          }
-        } else {
-          double dTmpScore = m_vpBlastSig->sumScore(nNo, aRawScore, nLen);
-          double dTmpBits = m_vpBlastSig->rawScore2Bit(dTmpScore);
-          // modify the logevalue
-          if (dTmpBits >= m_dThr) {
-            for (uint i = 0; i < vNew.size(); ++i) {
-              vNew[i].dBits = dTmpBits;
-            }
-            vRes.insert(vRes.end(), vNew.begin(), vNew.end());
-          }
+  STIT itStart = v.begin() + nSt;
+  STIT itEnd = v.begin() + nEd;
+
+  vector<CHitUnit> vRes;
+  if (distance(itStart, itEnd) == 1) {
+    if (itStart->dEValue <= m_dThr) {
+      vRes.push_back(*itStart);
+    }
+  } else {
+    // sort by score and start position of query
+    sort(itStart, itEnd, CompQSt());
+    stable_sort(itStart, itEnd, ComptorWrapper(m_pComptor));
+    // check overlap and logevalue
+    vector<CHitUnit> vNew;
+    vNew.push_back(*itStart);
+    for (STIT itTemp = itStart + 1; itTemp != itEnd; ++itTemp) {
+      int nHalfLen = (itTemp->nQEd - itTemp->nQSt + 1) >> 1;
+      int nOverlap = SUMHSP_OVERLAP < nHalfLen ? SUMHSP_OVERLAP : nHalfLen;
+      if (itTemp->dEValue >= SUMHSP_MINEVALUE
+          && itTemp->nScore <= SUMHSP_MINRAWSCORE) {
+        continue;
+      }
+      bool bNonOvlp = true;
+      for (STIT itIso = vNew.begin(); itIso != vNew.end(); ++itIso) {
+        if ((itTemp->nQSt <= itIso->nQEd - nOverlap
+            && itTemp->nQEd >= itIso->nQSt + nOverlap)
+            || (itIso->nQSt <= itTemp->nQEd - nOverlap
+                && itIso->nQEd >= itTemp->nQSt + nOverlap)) {
+          bNonOvlp = false;
+          break;
         }
       }
-      itStart = itEnd;
-      itEnd = itEd;
+      if (true == bNonOvlp) {
+        vNew.push_back(*itTemp);
+      }
     }
-    // replace
-    if (!vRes.empty()) {
-      v.erase(itSt, itEd);
-      v.insert(v.begin() + nSt, vRes.begin(), vRes.end());
+    if (vNew.size() == 1) {
+      if (vNew[0].dEValue <= m_dThr) {
+        vRes.push_back(vNew[0]);
+      }
+      //continue;
+    } else {
+      // calculate the sum of evalue
+      double aRawScore[DEFAULT_SCORE_TOP];
+      int nNo = 0;
+      for (; nNo < 5 && nNo < vNew.size(); ++nNo) {
+        aRawScore[nNo] = vNew[nNo].nScore;
+      }
+
+      double dTmp = m_pBlastSig->sumScore2Expect(nNo, aRawScore, nLen);
+      double dSumEvalue = -10000.00;
+      if (0 != dTmp) {
+        dSumEvalue = log(dTmp) / LOG10;
+      }
+      dSumEvalue = dTmp;
+
+      // modify the logevalue
+      if (dSumEvalue < m_dThr) {
+        for (uint i = 0; i < vNew.size(); ++i) {
+          vNew[i].dEValue = dSumEvalue;
+        }
+        vRes.insert(vRes.end(), vNew.begin(), vNew.end());
+      }
     }
+  }
+
+  // replace
+  if (!vRes.empty()) {
+    v.erase(itStart, itEnd);
+    v.insert(v.begin() + nSt, vRes.begin(), vRes.end());
   }
 }
 
-void CHashSearch::PrintAln(vector<CHitUnit>& v, ofstream& of) {
+void CHashSearch::PrintAln(vector<CHitUnit>& v) {
   int nPrint = min((long long) v.size(), m_nMaxOut);
   for (int i = 0; i < nPrint; ++i) {
     CHitUnit& c = v[i];
-
-    of << c.sQName << " vs " << c.sDName << " bits=" << c.dBits;
-    if (m_bLogE == true) {
-      of << " log(E-value)=" << c.dEValue;
-    } else {
-      of << " E-value=" << c.dEValue;
-    }
-    of << " identity=" << c.dIdent << "%" << " aln-len=" << c.nAlnLen
-       << " mismatch=" << c.nMismatch << " gap-openings=" << c.nGapOpen
-       << " nFrame=" << c.nFrame << "\n" << "Query:\t" << c.sQ << "\n"
-       << "      \t" << c.sInfo << "\n" << "Sbjct:\t" << c.sD << "\n" << "\n";
+    faln << c.sQName << " vs " << c.sDName << " bits=" << c.dBits;
+    faln << " E-value=" << c.dEValue;
+    faln << " identity=" << c.dIdent << "%" << " aln-len=" << c.nAlnLen
+         << " mismatch=" << c.nMismatch << " gap-openings=" << c.nGapOpen
+         << "\n" << "Query:\t" << c.sQ << "\n" << "      \t" << c.sInfo << "\n"
+         << "Sbjct:\t" << c.sD << "\n" << "\n";
   }
 }
 
@@ -1554,23 +1308,20 @@ void CHashSearch::PrintM8(vector<CHitUnit>& v) {
   int nPrint = min((long long) v.size(), m_nMaxM8);
   for (int i = 0; i < nPrint; ++i) {
     CHitUnit& c = v[i];
-    of << c.sQName << "\t" << c.sDName << setprecision(1)
-       << setiosflags(ios::fixed) << "\t" << c.dIdent << "\t" << c.nAlnLen
-       << "\t" << c.nMismatch << "\t" << c.nGapOpen << "\t" << c.nQBeg << "\t"
-       << c.nQEnd << "\t" << c.nDSt << "\t" << c.nDEd;
-    if (m_bLogE == true) {
-      of << setprecision(1) << setiosflags(ios::fixed) << "\t" << c.dEValue;
+    fm8 << c.sQName << "\t" << c.sDName << setprecision(1)
+        << setiosflags(ios::fixed) << "\t" << c.dIdent << "\t" << c.nAlnLen
+        << "\t" << c.nMismatch << "\t" << c.nGapOpen << "\t" << c.nQBeg << "\t"
+        << c.nQEnd << "\t" << c.nDSt << "\t" << c.nDEd;
+    if (c.dEValue < 0.01) {
+      fm8 << setprecision(1) << setiosflags(ios::scientific)
+          << setiosflags(ios::fixed) << "\t" << c.dEValue;
+      fm8 << resetiosflags(ios::scientific);
+    } else if (c.dEValue < 10.0) {
+      fm8 << setprecision(2) << setiosflags(ios::fixed) << "\t" << c.dEValue;
     } else {
-      if (c.dEValue < 0.01) {
-        of << setprecision(1) << setiosflags(ios::scientific)
-           << setiosflags(ios::fixed) << "\t" << c.dEValue;
-        of << resetiosflags(ios::scientific);
-      } else if (c.dEValue < 10.0) {
-        of << setprecision(2) << setiosflags(ios::fixed) << "\t" << c.dEValue;
-      } else {
-        of << setprecision(0) << setiosflags(ios::fixed) << "\t" << c.dEValue;
-      }
+      fm8 << setprecision(0) << setiosflags(ios::fixed) << "\t" << c.dEValue;
     }
-    of << setprecision(1) << setiosflags(ios::fixed) << "\t" << c.dBits << "\n";
+    fm8 << setprecision(1) << setiosflags(ios::fixed) << "\t" << c.dBits
+        << "\n";
   }
 }

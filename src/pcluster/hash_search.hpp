@@ -114,17 +114,15 @@ typedef MRESULT::iterator MIT;
 /* the class for indexing, searching */
 class CHashSearch {
  public:
-  CHashSearch();
+  CHashSearch(const string& output_file, double dThr, int nMaxOut, int nMaxM8,
+              bool bHssp, int nMinLen);
   ~CHashSearch(void) {
-    if (NULL != m_pBlastSig) {
-      delete m_pBlastSig;
-    }
-
     if (NULL != m_pComptor) {
       delete m_pComptor;
     }
 
-    of.close();
+    fm8.close();
+    faln.close();
   }
 
  private:
@@ -180,7 +178,7 @@ class CHashSearch {
   // init alignment parameters
   void InitAlignPara();
 
-  void PrintAln(vector<CHitUnit>& v, ofstream& of);
+  void PrintAln(vector<CHitUnit>& v);
   void PrintM8(vector<CHitUnit>& v);
 
  private:
@@ -195,18 +193,15 @@ class CHashSearch {
 
   int m_aSubMatrix[256][256];
 
-  MRESULT m_mRes;
+  //MRESULT m_mRes;
 
   /* for alignment and calculation */
-  bool m_bEvalue;
-  bool m_bLogE;
   double m_dThr;
   int GapIni;
   int GapExt;
   int MaxGap;
   HitComptor* m_pComptor;
 
-  BlastStat* m_pBlastSig;
   double GapExtSCutBits;
   double GapExtSCut;
   double UngapExtDropBits;
@@ -220,37 +215,18 @@ class CHashSearch {
   vector<vector<char> > m_vETrace;
   vector<vector<char> > m_vDTrace;
 
-  bool m_bFast;
   uint m_unMutSeedLen;
   VUINT m_vMutation;
-
-  uint m_unTotalSeeds;
-  //uint m_unTotalQuery;
-  uint m_unTotalSubj;
 
   /* for output */
   long long m_nMaxOut;
   long long m_nMaxM8;
-  bool m_bPrintEmpty;
-  bool m_bGapExt;
-  string m_sStartTime;
-  string m_sQFile;
-  string m_sDFile;
-  ofstream m_ofTemp;
-  int m_nStdout;
 
-  vector<CIndex> m_vOutIdx;
-  vector<CIndex> m_vM8Idx;
-  long long m_llOutCum;
-  //long long m_llM8Cum;
-  //int m_nSeqBase;
-  string m_sLeft;
 
-  BlastStat* m_vpBlastSig;
+  BlastStat* m_pBlastSig;
 
   // for test on gap extension
   uint m_unGapExt;
-  bool m_bAcc;
   bool m_bHssp;
   int m_nMinLen;
 
@@ -269,20 +245,18 @@ class CHashSearch {
   uint unDMedian;
   long int lnDTotalSeqs;
   long int lnDTotalAa;
-  ofstream of;
+
+  ofstream fm8;
+  ofstream faln;
  public:
   void BuildProteinsIndex(const vector<uint32_t>& protienIDS,
                           const ProteinDB& proteinDB);
   void ProteinSearching(const vector<uint32_t>& proteinIDS,
-                        const ProteinDB& proteinDB, bool bEvalue, bool bLogE,
-                        double dThr, int nMaxOut, int nMaxM8, int nQueryTypeq,
-                        bool bPrintEmpty, bool bGapExt, bool bAcc, bool bHssp,
-                        int nMinLen, bool bXml, uint unDSize = 300000000,
-                        uint unQSize = 500000000, uint unMer = 6);
+                        const ProteinDB& proteinDB);
 };
 
 inline void CHashSearch::InitAlignPara() {
-  m_vpBlastSig = new BlastStat(1, lnDTotalAa, lnDTotalSeqs);
+  m_pBlastSig = new BlastStat(1, lnDTotalAa, lnDTotalSeqs);
 
   GapIni = GAPINI;
   GapExt = GAPEXT;
@@ -290,14 +264,14 @@ inline void CHashSearch::InitAlignPara() {
   // set up cutoff values
   // fix it!!!
   GapExtSCutBits = 25;  //the dropoff (in bits) to invoke gapped alignment
-  GapExtSCut = m_vpBlastSig->Bits2RawScoreUngapped(GapExtSCutBits);
+  GapExtSCut = m_pBlastSig->Bits2RawScoreUngapped(GapExtSCutBits);
 
   UngapExtDropBits = 7;  //in bits
   GapExtDropBits = 15;  //in bits
   UngapExtSCut = 11;  //blastp default
 
-  UngapExtDrop = m_vpBlastSig->Bits2RawScoreUngapped(UngapExtDropBits);
-  GapExtDrop = m_vpBlastSig->Bits2RawScoreGapped(GapExtDropBits);
+  UngapExtDrop = m_pBlastSig->Bits2RawScoreUngapped(UngapExtDropBits);
+  GapExtDrop = m_pBlastSig->Bits2RawScoreGapped(GapExtDropBits);
 
   MinMatch4Exp = 4;
 }

@@ -39,7 +39,7 @@ CFLAGS += -arch x86_64
 endif
 
 SRCCLUSTER = lsh.cpp read_proteins.cpp hash_search.cpp \
-	merge_unit.cpp read_proteins.cpp seg.cpp union_find.cpp \
+	read_proteins.cpp seg.cpp union_find.cpp \
 	blast_stat.cpp
 
 OBJCLUSTER = $(patsubst %.cpp,%.o,$(SRCCLUSTER))
