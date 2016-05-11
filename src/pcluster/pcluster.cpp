@@ -11,7 +11,7 @@
 void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
   clock_t start = clock();
   uint32_t feature_size = static_cast<uint32_t>(pow(8, HASHLEN));
-  uint32_t bit_num = 8;
+  uint32_t bit_num = 16;
   double sigma = 0.2;
 
   KLSH klsh_low(feature_size, bit_num, sigma);
@@ -45,7 +45,8 @@ void PreClustering(const ProteinDB& proteinDB, HASH_BUCKETS& hash_buckets) {
   }
 #endif
 
-  printf("%lf seconds\n", (clock() - start) / (double) CLOCKS_PER_SEC);
+  printf("[Locality-Sensitive Hashing Pre-Clustering TAKES %lf SECONDS]\n",
+         (clock() - start) / (double) CLOCKS_PER_SEC);
 }
 
 int main(int argc, const char *argv[]) {
@@ -133,17 +134,22 @@ int main(int argc, const char *argv[]) {
 
     //////////////////////
     // CLUSTERING
-    for(HASH_BUCKETS::iterator it = hash_buckets.begin();it != hash_buckets.end();++it) {
-      //cout << it->first << endl;
+    uint32_t group_id = 0;
+    for (HASH_BUCKETS::iterator it = hash_buckets.begin();
+        it != hash_buckets.end(); ++it) {
+      clock_t start = clock();
+      fprintf(stderr, "[CLUSTERING GROUP %u of %lu]\n", group_id++,
+              hash_buckets.size());
+      fprintf(stderr, "[THE NUMBER OF SEQUENCES IN THIS GROUP IS %lu]\n",
+              it->second.size());
       CHashSearch hs;
-      //cout << it->second.size() << endl;
       hs.BuildProteinsIndex(it->second, proteinDB);
-
       hs.ProteinSearching(it->second, proteinDB, bEvalue, bLogE, dThr,
-          nMaxAlnPer, nMaxHitPer,
-          nQueryType, bPrintEmpty, bGapExt, bAcc, bHssp, nMinLen, bXml);
+                          nMaxAlnPer, nMaxHitPer, nQueryType, bPrintEmpty,
+                          bGapExt, bAcc, bHssp, nMinLen, bXml);
+      fprintf(stderr, "[CLUSTERING TAKES %lf SECONDS]\n",
+              (clock() - start) / (double) CLOCKS_PER_SEC);
     }
-
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
     return EXIT_FAILURE;

@@ -47,7 +47,7 @@ OBJCLUSTER = $(patsubst %.cpp,%.o,$(SRCCLUSTER))
 all:	$(PROGS)
 
 %.o: %.cpp %.hpp
-	$(CXX) $(CFLAGS) -c -o $@ $<  -I$(SMITHLAB_CPP)
+	$(CXX) $(CFLAGS) -c -o $@ $< -I$(SMITHLAB_CPP)
 
 pcluster : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)

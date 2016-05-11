@@ -34,8 +34,6 @@ CHashSearch::CHashSearch() {
   m_unTotalIdx = static_cast<uint>(pow(10.0, int(m_unMer)));
 
   fill_n(m_aChar2Code, 256, (m_uMask << 4));
-  int xxxx = m_uMask << 4;
-  cout << "xxx " << xxxx << endl;
   fill_n(m_aCode2Char, 256, m_uMask);
   fill_n(m_aCode2Ten, 256, m_uMask);
   // read group info in aa.h and build mapping array
@@ -169,6 +167,8 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
 
   // char to code
   lnDTotalAa += Encode(vDSeqs, vDFreq);
+  fprintf(stderr, "[THE TOTAL NUMBER OF AA IN THIS GROUP IS %lu]\n",
+          lnDTotalAa);
 
   for (uint i = 0; i < vDLens.size() - 1; ++i) {
     // -1 or no, I need to think about it
@@ -286,16 +286,18 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
   CDbPckg Db(vDHash, vDSeqs, vDLens, vDNames, vDComp, vDFreq, vDWordCnts,
              unDMedian);
   for (size_t i = 0; i < proteinIDS.size(); ++i) {
-    cout << i << " " << proteinIDS.size() << endl;
     vector<uchar> vQSeqs;
     vector<uint> vQLens;
     VNAMES vQNames;
 
     vQLens.push_back(0);
     vQNames.push_back(proteinDB.pro_names[i]);
+    of << "Query: ";
     for (size_t j = 0; j < proteinDB.pro_seqs[i].size(); ++j) {
       vQSeqs.push_back(proteinDB.pro_seqs[i][j]);
+      of << proteinDB.pro_seqs[i][j];
     }
+    of << endl;
     vQLens.push_back(vQSeqs.size());
     Encode(vQSeqs);
 
@@ -1374,10 +1376,6 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
 
     st.sInfo.insert(0, 7, ' ');
 
-    //string sQNum = static_cast < string > (st.nQBeg);
-    // st.sQ = string(nBegStrAligned - sQNum.size(), ' ') + sQNum + " " + st.sQ
-    //+ " " + static_cast < string > (st.nQEnd);
-
     ++st.nDSt;
     ++st.nDEd;
     int nFac = 0;
@@ -1387,9 +1385,6 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
     }
     st.nDSt = 1848 * nFac + st.nDSt;
     st.nDEd = 1848 * nFac + st.nDEd;
-    //string sDNum = static_cast < string > (st.nDSt);
-    // st.sD = string(nBegStrAligned - sDNum.size(), ' ') + sDNum + " " + st.sD
-    //   + " " + static_cast < string > (st.nDEd);
 
     st.sQName = Query.m_vNames[nQrIdx];
     st.sDName = Db.m_vNames[st.nDbIdx];
@@ -1421,25 +1416,9 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
       ++nf;
     }
     vTemp.resize(nl);
-
-//    stringstream sOutput;
-//    archive::binary_oarchive oa(sOutput);
-//    oa << vTemp;
-
-    // muMonitor.lock();
-    // long long llBeg = m_llOutCum + m_sOutput.size();
-    // m_sOutput += sOutput.str();
-    // int nSize = m_llOutCum + m_sOutput.size() - llBeg;
-    // m_vOutIdx[m_nSeqBase + nQrIdx].m_llBeg = llBeg;
-    //m_vOutIdx[m_nSeqBase + nQrIdx].m_nSize = nSize;
-//    if (m_sOutput.size() > 100000000) {
-//      m_ofTemp << m_sOutput;
-//      m_llOutCum += m_sOutput.size();
-//      m_sOutput.clear();
-//    }
-    // muMonitor.unlock();
   }
-  PrintM8(mRes);
+
+  PrintM8(vTemp);
   mRes.clear();
 }
 
@@ -1575,7 +1554,6 @@ void CHashSearch::PrintM8(vector<CHitUnit>& v) {
   int nPrint = min((long long) v.size(), m_nMaxM8);
   for (int i = 0; i < nPrint; ++i) {
     CHitUnit& c = v[i];
-
     of << c.sQName << "\t" << c.sDName << setprecision(1)
        << setiosflags(ios::fixed) << "\t" << c.dIdent << "\t" << c.nAlnLen
        << "\t" << c.nMismatch << "\t" << c.nGapOpen << "\t" << c.nQBeg << "\t"
