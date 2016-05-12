@@ -15,7 +15,6 @@
 #include "hash_search.hpp"
 #include "weight.hpp"
 #include "aa.hpp"
-#include "n2a.hpp"
 
 using namespace std;
 
@@ -24,8 +23,8 @@ const ushort TWOBYTE = 255;
 const ushort THRBYTE = 4095;
 const ushort FOUBYTE = 65535;
 
-CHashSearch::CHashSearch(const string& output_file, double dThr, int nMaxOut,
-                         int nMaxM8, bool bHssp, int nMinLen) {
+CHashSearch::CHashSearch(const string& output_file, double dThr, int nMaxAlnPer,
+                         int nMaxHitPer, bool bHssp, int nMinLen) {
   // for any letter which is not in the 20 aa
   m_uMask = 10;
   m_uSeg = 8;
@@ -102,24 +101,13 @@ CHashSearch::CHashSearch(const string& output_file, double dThr, int nMaxOut,
   vDWordCnts.assign(m_unTotalIdx, 0);
   vDComp.assign(m_unTotalIdx, VUSHORT());
 
-  //m_bEvalue = bEvalue;
-  // m_bLogE = bLogE;
-
   m_pComptor = new CompEval();
 
   m_dThr = dThr;
-  if (nMaxOut == -1) {
-    m_nMaxOut = LLONG_MAX;
-  } else {
-    m_nMaxOut = abs(nMaxOut);
-  }
-  if (nMaxM8 == -1) {
-    m_nMaxM8 = LLONG_MAX;
-  } else {
-    m_nMaxM8 = abs(nMaxM8);
-  }
+  m_nMaxOut = nMaxAlnPer;
+  m_nMaxM8 = nMaxHitPer;
 
-  m_bHssp = bHssp;
+  //m_bHssp = bHssp;
   m_nMinLen = nMinLen;
 
   m_unMutSeedLen = 10;
@@ -299,8 +287,6 @@ void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
 }
 
 void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
-  uint32_t L = Query.m_vLens[1] - Query.m_vLens[0];
-  int nFoundHit = 0;
   MRESULT mRes;
 
   int nQrIdx = 0;
@@ -364,15 +350,8 @@ void CHashSearch::Searching(CQrPckg& Query, CDbPckg& Db) {
     }
 
     if (!Db.m_vHash[nSeed].empty()) {
-      int nCnt = ExtendSeq2Set(nSeed, unLocalSeed, vExtra, nQrIdx, QrAln,
-                               nQOriLen, vValid, Db.m_vHash[nSeed], Db,
-                               Query.m_vNames, Db.m_vNames, mRes);
-
-      if (nCnt > 0) {
-        unPrvSdLen = unLocalSeed;
-      } else {
-        unPrvSdLen = m_unMer;
-      }
+      ExtendSeq2Set(nSeed, unLocalSeed, vExtra, nQrIdx, QrAln, nQOriLen, vValid,
+                    Db.m_vHash[nSeed], Db, Query.m_vNames, Db.m_vNames, mRes);
     }
   }
 
@@ -472,80 +451,82 @@ int CHashSearch::ExtendSeq2Set(int nSeed, uint unLocalSeedLen,
                                vector<char>& vValid, VUINT& vDSet, CDbPckg& Db,
                                VNAMES& vQNames, VNAMES& vDNames,
                                MRESULT& mRes) {
+  cout << "xx " << nQSeqIdx << endl;
   // find a proper range for the comparisons
   int nSt = 0;
   int nEd = 0;
-  if (unLocalSeedLen > m_unMer) {
-    ushort nExtra = 0;
-    for (uint i = 0; i < vExtra.size(); ++i) {
-      nExtra |= (vExtra[i]) << (12 - (i << 2));
-    }
-    for (int i = vExtra.size(); i < 4; ++i) {
-      nExtra |= (ONEBYTE) << (12 - (i << 2));
-    }
 
-    VUSHORT::iterator itShort = lower_bound(Db.m_vComp[nSeed].begin(),
-                                            Db.m_vComp[nSeed].end(), nExtra,
-                                            CompShortLow());
-    nSt = itShort - Db.m_vComp[nSeed].begin();
-
-    if (static_cast<int>(vDSet.size()) == nSt) {
-      return 0;
-    }
-
-    ushort s1 = Db.m_vComp[nSeed][nSt];
-    ushort s2 = nExtra;
-    int nLen1 = 4;
-    if ((s1 & ONEBYTE) == ONEBYTE) {
-      --nLen1;
-    }
-    if ((s1 & TWOBYTE) == TWOBYTE) {
-      --nLen1;
-    }
-    if ((s1 & THRBYTE) == THRBYTE) {
-      --nLen1;
-    }
-    if ((s1 & FOUBYTE) == FOUBYTE) {
-      --nLen1;
-    }
-
-    int nLen2 = 4;
-    if ((s2 & ONEBYTE) == ONEBYTE) {
-      --nLen2;
-    }
-    if ((s2 & TWOBYTE) == TWOBYTE) {
-      --nLen2;
-    }
-    if ((s2 & THRBYTE) == THRBYTE) {
-      --nLen2;
-    }
-    if ((s2 & FOUBYTE) == FOUBYTE) {
-      --nLen2;
-    }
-
-    int nLen = nLen1 < nLen2 ? nLen1 : nLen2;
-    if (0 == nLen) {
-      return 0;
-    }
-    bool b = ((s1 >> ((4 - nLen) << 2)) == (s2 >> ((4 - nLen) << 2)));
-    if (true != b) {
-      return 0;
-    }
-
-    itShort = upper_bound(Db.m_vComp[nSeed].begin(), Db.m_vComp[nSeed].end(),
-                          nExtra, CompShortUp());
-    nEd = itShort - Db.m_vComp[nSeed].begin();
-  } else {
-    nSt = 0;
-    nEd = vDSet.size();
+  /////////////
+  // get region
+  ushort nExtra = 0;
+  for (uint i = 0; i < vExtra.size(); ++i) {
+    nExtra |= (vExtra[i]) << (12 - (i << 2));
+  }
+  for (int i = vExtra.size(); i < 4; ++i) {
+    nExtra |= (ONEBYTE) << (12 - (i << 2));
   }
 
+  VUSHORT::iterator itShort = lower_bound(Db.m_vComp[nSeed].begin(),
+                                          Db.m_vComp[nSeed].end(), nExtra,
+                                          CompShortLow());
+  nSt = itShort - Db.m_vComp[nSeed].begin();
+
+  if (static_cast<int>(vDSet.size()) == nSt) {
+    return 0;
+  }
+
+  ushort s1 = Db.m_vComp[nSeed][nSt];
+  ushort s2 = nExtra;
+  int nLen1 = 4;
+  if ((s1 & ONEBYTE) == ONEBYTE) {
+    --nLen1;
+  }
+  if ((s1 & TWOBYTE) == TWOBYTE) {
+    --nLen1;
+  }
+  if ((s1 & THRBYTE) == THRBYTE) {
+    --nLen1;
+  }
+  if ((s1 & FOUBYTE) == FOUBYTE) {
+    --nLen1;
+  }
+
+  int nLen2 = 4;
+  if ((s2 & ONEBYTE) == ONEBYTE) {
+    --nLen2;
+  }
+  if ((s2 & TWOBYTE) == TWOBYTE) {
+    --nLen2;
+  }
+  if ((s2 & THRBYTE) == THRBYTE) {
+    --nLen2;
+  }
+  if ((s2 & FOUBYTE) == FOUBYTE) {
+    --nLen2;
+  }
+
+  int nLen = nLen1 < nLen2 ? nLen1 : nLen2;
+  if (0 == nLen) {
+    return 0;
+  }
+  bool b = ((s1 >> ((4 - nLen) << 2)) == (s2 >> ((4 - nLen) << 2)));
+  if (true != b) {
+    return 0;
+  }
+
+  itShort = upper_bound(Db.m_vComp[nSeed].begin(), Db.m_vComp[nSeed].end(),
+                        nExtra, CompShortUp());
+  nEd = itShort - Db.m_vComp[nSeed].begin();
+
+  //cout << nSt << " " << nEd << endl;
+ //////////////////////////////////////////////////////////
   //sequence extension
+  // todo vDSet[j] >> 11 protein ID
   STAlnmnt stAlnmnt;
   for (int j = nSt; j < nEd; ++j) {
-    if (vDNames[vDSet[j] >> 11] == "7719.ENSCINP00000006706") {
+    //if (vDNames[vDSet[j] >> 11] == "7719.ENSCINP00000006706") {
       //int zya = 0;
-    }
+    //}
 
     uint unDLen, unDSeedBeg;
     uchar* pD = GetSeq(Db.m_vSeqs, Db.m_vLens, Db.m_vNames, vDSet[j], unDLen,
@@ -604,6 +585,9 @@ int CHashSearch::ExtendSeq2Set(int nSeed, uint unLocalSeedLen,
       --ii;
     }
 
+    ///////////////////////////////////////////////////////
+    ///////////////////////////////////////
+    // condition
     if (stAlnmnt.nScore >= UngapExtSCut && stAlnmnt.nMatch >= MinMatch4Exp) {
       AlignSeqs(nSeed, QrAln, DbAln, unLocalCopy, stAlnmnt);
 
@@ -981,11 +965,7 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
   }
 
   // evalue criteria
-  if (m_bHssp == false
-      && !(stAlnmnt.nScore > SUMHSP_MINRAWSCORE || dEValue <= m_dThr)) {
-    return;
-  } else if (m_bHssp == true
-      && (nTotAlnLen < m_nMinLen || stAlnmnt.nMatch < m_vCriteria[nTotAlnLen])) {
+  if (stAlnmnt.nScore < SUMHSP_MINRAWSCORE && dEValue > m_dThr) {
     return;
   }
 

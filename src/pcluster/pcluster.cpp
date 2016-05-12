@@ -116,8 +116,6 @@ int main(int argc, const char *argv[]) {
     int nMaxAlnPer = 100;
     bool bHssp = false;
     int nMinLen = 0;
-    //bool bLogE = false;
-    //bool bEvalue = true;
     double dThr = 10.0;
 
     /****************** COMMAND LINE OPTIONS ********************/

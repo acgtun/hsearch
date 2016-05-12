@@ -12,9 +12,7 @@
 #include "read_proteins.hpp"
 #include "blast_stat.hpp"
 #include "paras.hpp"
-#include "cindex.hpp"
 #include "hit_unit.hpp"
-#include "seg.hpp"
 
 using namespace std;
 
@@ -114,8 +112,8 @@ typedef MRESULT::iterator MIT;
 /* the class for indexing, searching */
 class CHashSearch {
  public:
-  CHashSearch(const string& output_file, double dThr, int nMaxOut, int nMaxM8,
-              bool bHssp, int nMinLen);
+  CHashSearch(const string& output_file, double dThr, int nMaxAlnPer,
+              int nMaxHitPer, bool bHssp, int nMinLen);
   ~CHashSearch(void) {
     if (NULL != m_pComptor) {
       delete m_pComptor;
@@ -227,7 +225,7 @@ class CHashSearch {
 
   // for test on gap extension
   uint m_unGapExt;
-  bool m_bHssp;
+  //bool m_bHssp;
   int m_nMinLen;
 
   // hssp criteria

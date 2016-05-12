@@ -38,9 +38,7 @@ ifeq "$(shell uname)" "Darwin"
 CFLAGS += -arch x86_64
 endif
 
-SRCCLUSTER = lsh.cpp read_proteins.cpp hash_search.cpp \
-	read_proteins.cpp seg.cpp union_find.cpp \
-	blast_stat.cpp
+SRCCLUSTER = lsh.cpp hash_search.cpp read_proteins.cpp union_find.cpp blast_stat.cpp
 
 OBJCLUSTER = $(patsubst %.cpp,%.o,$(SRCCLUSTER))
 
