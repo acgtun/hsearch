@@ -2,39 +2,50 @@
 // export CXX=/usr/usc/gnu/gcc/4.8.1/bin/g++
 // source /usr/usc/gnu/gcc/4.8.1/setup.sh
 
-#ifndef KERNEL_LSH_H
-#define KERNEL_LSH_H
+#ifndef LSH_H
+#define LSH_H
 
 #pragma once
-#include <vector>
-#include <random>
 
 #include <cmath>
 #include <cstdint>
 
-using std::vector;
+#include <vector>
+#include <random>
 
-class KLSH {
+using namespace std;
+
+class LSH {
  public:
-  KLSH(const uint32_t& dimension, const uint32_t& hash_bit_num,
-       const double& sigma);
-  uint64_t GetHashValue(const vector<double>& pfeat);
+  LSH(const uint32_t& dimension)
+      : generator(rd()),
+        m_dimension(dimension),
+        bucket_width(1.0),
+        m_uniform(uniform_real_distribution<double>(-10, 10)),
+        m_uniform_width(uniform_real_distribution<double>(0, bucket_width)),
+        unit_vector(dimension, 0) {
+    for (uint32_t i = 0; i < dimension; ++i) {
+      unit_vector[i] = m_uniform(generator);
+    }
+    double length = DotProduct(unit_vector, unit_vector);
+    length = sqrt(length);
+
+    for (uint32_t i = 0; i < dimension; ++i) {
+      unit_vector[i] = unit_vector[i] / length;
+    }
+  }
+
+  int HashBucketIndex(const vector<double>& point);
+  double DotProduct(const vector<double>& px, const vector<double>& py);
 
  private:
+  random_device rd;
+  default_random_engine generator;
   uint32_t m_dimension;
-  uint32_t m_hash_bit_num;
-  double m_sigma;
-
-  std::normal_distribution<double> m_normal;
-  std::uniform_real_distribution<double> m_uniform_1;
-  std::uniform_real_distribution<double> m_uniform_pi;
-
-  // std::vector is not used because operator "=" is not allowed in vector
-  vector<vector<double> > m_project_w;
-  vector<double> m_project_t;
-  vector<double> m_project_b;
-
-  std::default_random_engine generator;
+  double bucket_width;
+  uniform_real_distribution<double> m_uniform;
+  uniform_real_distribution<double> m_uniform_width;
+  vector<double> unit_vector;
 };
 
-#endif // KERNEL_LSH_H
+#endif // LSH_H
