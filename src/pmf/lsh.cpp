@@ -13,9 +13,8 @@ double LSH::DotProduct(const vector<double>& px, const vector<double>& py) {
 }
 
 int LSH::HashBucketIndex(const vector<double>& point) {
-  double b = m_uniform_width(generator);
+  double b = m_uniform_1(generator);
   double len = DotProduct(unit_vector, point);
-  //cerr << len + b << endl;
   return static_cast<int>((len + b) / bucket_width);
 }
 

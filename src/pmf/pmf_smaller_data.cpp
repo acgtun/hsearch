@@ -11,7 +11,7 @@
 using namespace std;
 
 uint32_t DIMENSION = 0;
-double cluster_distance_threshold = 80.0;
+
 
 struct Point {
   Point()
@@ -170,6 +170,7 @@ void LSHClustering(const vector<Cluster>& clusters,
 
 void Clustering(const vector<pair<string, string> >& kmers,
                 const uint32_t& hash_L,
+                const double& cluster_distance_threshold,
                 const string& output_file) {
   vector<Cluster> clusters(kmers.size());
   Point p;
@@ -177,6 +178,7 @@ void Clustering(const vector<pair<string, string> >& kmers,
     KmerToCoordinates(kmers[i].second, p);
     clusters[i].AddPointUpdateCenter(p, i);
   }
+
   vector<Cluster> new_clusters;
   LSHClustering(clusters, hash_L, new_clusters);
   clusters = new_clusters;
@@ -214,6 +216,52 @@ void Clustering(const vector<pair<string, string> >& kmers,
    */
 }
 
+void Clustering2(const vector<pair<string, string> >& kmers,
+                const uint32_t& hash_L,
+                const double& cluster_distance_threshold,
+                const string& output_file) {
+  vector<Cluster> clusters(kmers.size());
+  Point p;
+  for (uint32_t i = 0; i < kmers.size(); ++i) {
+    KmerToCoordinates(kmers[i].second, p);
+    clusters[i].AddPointUpdateCenter(p, i);
+  }
+  vector<Cluster> new_clusters;
+  LSHClustering(clusters, hash_L, new_clusters);
+  clusters = new_clusters;
+  new_clusters.clear();
+  new_clusters.push_back(clusters[0]);
+
+  for (uint32_t i = 1; i < clusters.size(); ++i) {
+    bool found = false;
+    for (uint32_t j = 0; j < new_clusters.size(); ++j) {
+      double dis = PairwiseDistance(clusters[i].center, new_clusters[j].center);
+      if (dis < cluster_distance_threshold) {
+        new_clusters[j].AddClusterUpdateCenter(clusters[i]);
+        found = true;
+        break;
+      }
+    }
+    if(found = false) {
+      new_clusters.push_back(clusters[i]);
+    }
+  }
+
+  Evaluation(kmers, new_clusters);
+
+  //sort(kemrs_hash_value_to_string.begin(), kemrs_hash_value_to_string.end(), sortCMP);
+  /*
+   ofstream fout(output_file.c_str());
+   for (uint32_t i = 0; i < kmers.size(); ++i) {
+   uint32_t id = kemrs_hash_value_to_string[i].second;
+   fout << kmers[id].second << "\t" << kmers[id].first << "\t"
+   << kemrs_hash_value_to_string[i].first << endl;
+   }
+   fout.close();
+   */
+}
+
+
 int main(int argc, const char *argv[]) {
   srand (time(NULL));try {
     string command = argv[0];
@@ -246,6 +294,9 @@ int main(int argc, const char *argv[]) {
     /* number of hash functions */
     uint32_t num_of_hash_functions = 8;
 
+    /* distance threshold */
+    double cluster_distance_threshold = 50;
+
     /* output file */
     string output_file;
     /****************** COMMAND LINE OPTIONS ********************/
@@ -257,6 +308,8 @@ int main(int argc, const char *argv[]) {
         len);
     opt_parse.add_opt("nhash", 'h', "number of hash functions", false,
         num_of_hash_functions);
+    opt_parse.add_opt("threshold", 't', "cluster center threshold", true,
+                      cluster_distance_threshold);
     opt_parse.add_opt("output", 'o', "output file name", true, output_file);
 
     vector<string> leftover_args;
@@ -287,7 +340,7 @@ int main(int argc, const char *argv[]) {
     }
     fin.close();
     printf("The number of kmers is %u\n", kmers.size());
-    Clustering(kmers, num_of_hash_functions, output_file);
+    Clustering2(kmers, num_of_hash_functions, cluster_distance_threshold, output_file);
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
     return EXIT_FAILURE;

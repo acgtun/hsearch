@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include "./../smithlab_cpp/smithlab_os.hpp"
 #include "./../smithlab_cpp/OptionParser.hpp"
 
@@ -143,28 +144,41 @@ int main(int argc, const char *argv[]) {
     }
     /****************** END COMMAND LINE OPTIONS *****************/
     ifstream fin(kmers_file.c_str());
-    string kmer, line;
+    vector<pair<string, string> > kmers;
+    string line, name;
+    while(fin >> line) {
+      if(line[0] == '>') {
+        name = line;
+        fin >> line;
+        kmers.push_back(make_pair(name, line));
+      }
+    }
+    fin.close();
+    vector<string> ground_truth(kmers.size());
+    unordered_map<string, vector<uint32_t> > cluster_ids;
+    for (uint32_t i = 0; i < kmers.size(); ++i) {
+      size_t pos = kmers[i].first.find("_motif");
+      size_t pos_ = kmers[i].first.find_last_of('_');
+      string motif_num = kmers[i].first.substr(pos + 6, pos_ - pos - 6);
+      ground_truth[i] = motif_num;
+      cluster_ids[motif_num].push_back(i);
+    }
+
+    //string kmer, line;
     uint32_t dimension = AACoordinateSize * kmer_length;
     vector<double> p(dimension, 0);
     vector<vector<double> > points;
     vector<vector<vector<double> > > cluster_points;
-    uint32_t cline = 0, freq = 0;
-    while(getline(fin, line)) {
-      if(line.size() == 0) continue;
-      if(line[0] == '#') {
-        if(points.size() >= MIN_SIZE_CLUSTER) {
-          cluster_points.push_back(points);
-        }
-        points.clear();
-      } else {
-        KmerToCoordinates(line, p);
+    for(unordered_map<string, vector<uint32_t> >::iterator it = cluster_ids.begin();
+        it != cluster_ids.end();++it) {
+      points.clear();
+      for(uint32_t i = 0;i < it->second.size();++i) {
+        KmerToCoordinates(kmers[it->second[i]].second, p);
         points.push_back(p);
       }
-    }
-    fin.close();
-    if(points.size() >= MIN_SIZE_CLUSTER) {
       cluster_points.push_back(points);
     }
+
     cout << "Number of Clusters: " << cluster_points.size() << endl;
 
     InnerClusterDistance(cluster_points, output_file);
