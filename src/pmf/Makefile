@@ -27,7 +27,7 @@ ifndef SMITHLAB_CPP
 SMITHLAB_CPP=./../smithlab_cpp
 endif
 
-PROGS = pmf
+PROGS = pmf repmf pairwiseDistanceSampling shuffle_kmers pmf_smaller_data
 
 CXX = g++
 CFLAGS = -Wall -std=c++11 -O3 -fPIC -fmessage-length=50 -w
@@ -49,7 +49,17 @@ all:	$(PROGS)
 pmf : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
+repmf : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
+pairwiseDistanceSampling : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+shuffle_kmers : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+pmf_smaller_data : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 %: %.cpp
 		$(CXX) $(CFLAGS) -o $@ $^ -I$(SMITHLAB_CPP)
 install: all

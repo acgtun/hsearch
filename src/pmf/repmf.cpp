@@ -36,7 +36,7 @@ int main(int argc, const char *argv[]) {
     uint32_t num_of_hash_functions = 8;
 
     /* reclustering */
-    bool reclustering = false;
+    string org_output;
     uint32_t start_number = 0;
 
     /* output file */
@@ -50,9 +50,9 @@ int main(int argc, const char *argv[]) {
         len);
     opt_parse.add_opt("nhash", 'h', "number of hash functions", false,
         num_of_hash_functions);
-    opt_parse.add_opt("relcuster", 'r', "reclustering", false,
-        reclustering);
-    opt_parse.add_opt("startnum", 's', "start_number", false,
+    opt_parse.add_opt("org_output", 'r', "org_output", true,
+                      org_output);
+    opt_parse.add_opt("startnum", 's', "start_number", true,
         start_number);
     opt_parse.add_opt("output", 'o', "output file name", true, output_file);
 
@@ -89,16 +89,8 @@ int main(int argc, const char *argv[]) {
     fin.close();
     printf("The number of kmers is %u\n", kmers.size());
     /////////////////////////////
-    // testing
-    //RandomSampling(proteins, kmers, len, output_file);
-    // return 0;
-    //////////////////////////////
-    //////////////////////
     // CLUSTERING
-      InitClustering(proteins, kmers, len, output_file);
-      string input = output_file;
-      input += ".initclustering";
-      Clustering(proteins, kmers, frequency, len, num_of_hash_functions, input, 0, output_file);
+    Clustering(proteins, kmers, frequency, len, num_of_hash_functions, org_output, start_number, output_file);
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
     return EXIT_FAILURE;
