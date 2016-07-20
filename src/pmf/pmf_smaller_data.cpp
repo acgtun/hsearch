@@ -11,6 +11,7 @@
 using namespace std;
 
 uint32_t DIMENSION = 0;
+double cluster_distance_threshold = 80.0;
 
 struct Point {
   Point()
@@ -20,20 +21,52 @@ struct Point {
   vector<double> data;
 };
 
+double PairwiseDistance(const Point& a, const Point& b) {
+  double sum = 0;
+  for (int i = 0; i < a.data.size(); ++i) {
+    sum += (a.data[i] - b.data[i]) * (a.data[i] - b.data[i]);
+  }
+  return sqrt(sum);
+}
+
 struct Cluster {
+  Cluster() {
+    dimension_sum.resize(DIMENSION);
+    for (uint32_t i = 0; i < DIMENSION; ++i) {
+      dimension_sum[i] = 0.0;
+      center.data[i] = 0.0;
+    }
+  }
   vector<Point> points;
   vector<uint32_t> ids;
+  vector<double> dimension_sum;
+  Point center;
 
-  Point Center() const {
-    Point p;
+  void AddPointUpdateCenter(const Point& p, const uint32_t& id) {
     for (uint32_t i = 0; i < DIMENSION; ++i) {
-      p.data[i] = 0.0;
-      for (uint32_t j = 0; j < points.size(); ++j) {
-        p.data[i] += points[j].data[i];
-      }
-      p.data[i] /= points.size();
+      dimension_sum[i] += p.data[i];
     }
-    return p;
+    points.push_back(p);
+    ids.push_back(id);
+    for (uint32_t i = 0; i < DIMENSION; ++i) {
+      center.data[i] = dimension_sum[i] / points.size();
+    }
+  }
+
+  void AddClusterUpdateCenter(const Cluster& cluster) {
+    for (uint32_t i = 0; i < DIMENSION; ++i) {
+      for(uint32_t j = 0;j < cluster.points.size();++j) {
+        dimension_sum[i] += cluster.points[j].data[i];
+      }
+    }
+    for(uint32_t j = 0;j < cluster.points.size();++j) {
+      points.push_back(cluster.points[j]);
+      ids.push_back(cluster.ids[j]);
+    }
+
+    for (uint32_t i = 0; i < DIMENSION; ++i) {
+      center.data[i] = dimension_sum[i] / points.size();
+    }
   }
 };
 
@@ -75,7 +108,7 @@ void Evaluation(
       cout << "recall: " << (double) tp / ((double) tp + fn) << endl;
       cout << "precision: " << (double) tp / ((double) tp + fp) << endl;
     }
-    if(i > 5000) break;
+    if(i > 50000) break;
     for (uint32_t j = i + 1; j < kmers.size(); ++j) {
       if (ground_truth[i] == ground_truth[j]) {
         if (cluster_id[i] == cluster_id[j])
@@ -109,7 +142,7 @@ void LSHClustering(const vector<Cluster>& clusters,
     cout << "hash index " << hash_index << endl;
     LSH lsh(DIMENSION);
     for (uint32_t i = 0; i < clusters.size(); ++i) {
-      hash_values[i][hash_index] = lsh.HashBucketIndex(clusters[i].Center().data);
+      hash_values[i][hash_index] = lsh.HashBucketIndex(clusters[i].center.data);
     }
     hash_index++;
   }
@@ -129,10 +162,7 @@ void LSHClustering(const vector<Cluster>& clusters,
       it != buckets.end(); ++it) {
     Cluster one_cluster;
     for (uint32_t i = 0; i < it->second.size(); ++i) {
-      for (uint32_t j = 0; j < clusters[it->second[i]].points.size(); ++j) {
-        one_cluster.points.push_back(clusters[it->second[i]].points[j]);
-        one_cluster.ids.push_back(clusters[it->second[i]].ids[j]);
-      }
+        one_cluster.AddClusterUpdateCenter(clusters[it->second[i]]);
     }
     new_clusters.push_back(one_cluster);
   }
@@ -145,19 +175,32 @@ void Clustering(const vector<pair<string, string> >& kmers,
   Point p;
   for (uint32_t i = 0; i < kmers.size(); ++i) {
     KmerToCoordinates(kmers[i].second, p);
-    clusters[i].points.push_back(p);
-    clusters[i].ids.push_back(i);
+    clusters[i].AddPointUpdateCenter(p, i);
   }
-  uint32_t hash_T = 100;
-  for(uint32_t i = 0;i < hash_T;++i) {
-    cout << "i = " << i << " " << hash_T << endl;
-    vector<Cluster> new_clusters;
-    LSHClustering(clusters, hash_L, new_clusters);
-    clusters = new_clusters;
-    Evaluation(kmers, clusters);
+  vector<Cluster> new_clusters;
+  LSHClustering(clusters, hash_L, new_clusters);
+  clusters = new_clusters;
+  new_clusters.clear();
+  new_clusters.push_back(clusters[0]);
+
+  for (uint32_t i = 1; i < clusters.size(); ++i) {
+    double min_dis = std::numeric_limits<double>::max();
+    uint32_t min_id = -1;
+    for (uint32_t j = 0; j < new_clusters.size(); ++j) {
+      double dis = PairwiseDistance(clusters[i].center, new_clusters[j].center);
+      if (dis < min_dis) {
+        min_dis = dis;
+        min_id = j;
+      }
+    }
+    if (min_dis <= cluster_distance_threshold) {
+      new_clusters[min_id].AddClusterUpdateCenter(clusters[i]);
+    } else {
+      new_clusters.push_back(clusters[i]);
+    }
   }
 
-
+  Evaluation(kmers, new_clusters);
 
   //sort(kemrs_hash_value_to_string.begin(), kemrs_hash_value_to_string.end(), sortCMP);
   /*
