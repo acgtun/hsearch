@@ -21,53 +21,35 @@ struct Point {
   vector<double> data;
 };
 
-double PairwiseDistance(const Point& a, const Point& b) {
-  double sum = 0;
-  for (int i = 0; i < a.data.size(); ++i) {
-    sum += (a.data[i] - b.data[i]) * (a.data[i] - b.data[i]);
-  }
-  return sqrt(sum);
-}
-
 struct Cluster {
-  Cluster() {
-    dimension_sum.resize(DIMENSION);
-    for (uint32_t i = 0; i < DIMENSION; ++i) {
-      dimension_sum[i] = 0.0;
-      center.data[i] = 0.0;
-    }
-  }
-  vector<Point> points;
   vector<uint32_t> ids;
-  vector<double> dimension_sum;
-  Point center;
 
-  void AddPointUpdateCenter(const Point& p, const uint32_t& id) {
-    for (uint32_t i = 0; i < DIMENSION; ++i) {
-      dimension_sum[i] += p.data[i];
-    }
-    points.push_back(p);
+  void AddPoint(const uint32_t& id) {
     ids.push_back(id);
-    for (uint32_t i = 0; i < DIMENSION; ++i) {
-      center.data[i] = dimension_sum[i] / points.size();
-    }
   }
 
-  void AddClusterUpdateCenter(const Cluster& cluster) {
-    for (uint32_t i = 0; i < DIMENSION; ++i) {
-      for(uint32_t j = 0;j < cluster.points.size();++j) {
-        dimension_sum[i] += cluster.points[j].data[i];
-      }
-    }
-    for(uint32_t j = 0;j < cluster.points.size();++j) {
-      points.push_back(cluster.points[j]);
-      ids.push_back(cluster.ids[j]);
-    }
-
-    for (uint32_t i = 0; i < DIMENSION; ++i) {
-      center.data[i] = dimension_sum[i] / points.size();
+  void AddCluster(const Cluster& cluster) {
+    for (uint32_t i = 0; i < cluster.ids.size(); ++i) {
+      ids.push_back(cluster.ids[i]);
     }
   }
+};
+
+
+struct KMER {
+  KMER(const string& _name, const string& _seq, const Point& _point) :
+    name(_name),
+    seq(_seq),
+    point(_point) {
+  }
+  string name;
+  string seq;
+  Point point;
+};
+
+struct LSHTable {
+  vector<string> hash_keys;
+  unordered_map<string, vector<uint32_t> > buckets;
 };
 
 void KmerToCoordinates(const string& kmer, Point& point) {
@@ -80,16 +62,24 @@ void KmerToCoordinates(const string& kmer, Point& point) {
   }
 }
 
+double PairwiseDistance(const Point& a, const Point& b) {
+  double sum = 0;
+  for (int i = 0; i < a.data.size(); ++i) {
+    sum += (a.data[i] - b.data[i]) * (a.data[i] - b.data[i]);
+  }
+  return sqrt(sum);
+}
+
 void Evaluation(
-    const vector<pair<string, string> >& kmers,
+    const vector<KMER>& kmers,
     const vector<Cluster>& clusters) {
   cout << "number of clusters by our methods " << clusters.size() << endl;
 
   vector<string> ground_truth(kmers.size());
   for (uint32_t i = 0; i < kmers.size(); ++i) {
-    size_t pos = kmers[i].first.find("_motif");
-    size_t pos_ = kmers[i].first.find_last_of('_');
-    string motif_num = kmers[i].first.substr(pos + 6, pos_ - pos - 6);
+    size_t pos = kmers[i].name.find("_motif");
+    size_t pos_ = kmers[i].name.find_last_of('_');
+    string motif_num = kmers[i].name.substr(pos + 6, pos_ - pos - 6);
     ground_truth[i] = motif_num;
   }
 
@@ -128,139 +118,79 @@ void Evaluation(
   cout << "precision: " << (double) tp / ((double) tp + fp) << endl;
 }
 
-bool sortCMP(const pair<string, uint32_t>& a, const pair<string, uint32_t>& b) {
-  return a.first < b.first;
-}
 
-void LSHClustering(const vector<Cluster>& clusters,
-                   const uint32_t& hash_L,
-                   vector<Cluster>& new_clusters) {
-  vector<vector<uint32_t> > hash_values(clusters.size(),
-                          vector<uint32_t>(hash_L, 0));
-  int hash_index = 0;
-  while (hash_index < hash_L) {
-    cout << "hash index " << hash_index << endl;
-    LSH lsh(DIMENSION);
-    for (uint32_t i = 0; i < clusters.size(); ++i) {
-      hash_values[i][hash_index] = lsh.HashBucketIndex(clusters[i].center.data);
+void BuildLSHTalbes(const vector<KMER>& kmers, const uint32_t& hash_K,
+                    const uint32_t& hash_L, vector<LSHTable>& lsh_tables) {
+  Point point;
+  vector<vector<uint32_t> > hash_values(kmers.size(),
+      vector<uint32_t>(hash_K, 0));
+  for(uint32_t l = 0;l < hash_L;++l) {
+    for(uint32_t k = 0;k < hash_K;++k) {
+      LSH lsh(DIMENSION);
+      for (uint32_t i = 0; i < kmers.size(); ++i) {
+        hash_values[i][k] = lsh.HashBucketIndex(kmers[i].point.data);
+      }
     }
-    hash_index++;
-  }
 
-  unordered_map<string, vector<uint32_t> > buckets;
-  char hash_value_chr[100];
-  for (uint32_t i = 0; i < clusters.size(); ++i) {
-    string hash_value;
-    for (uint32_t j = 0; j < hash_L; ++j) {
-      sprintf(hash_value_chr, "%u", hash_values[i][j]);
-      hash_value += hash_value_chr;
+    LSHTable table;
+    char hash_value_chr[100];
+    table.hash_keys.resize(kmers.size());
+    for (uint32_t i = 0; i < kmers.size(); ++i) {
+      string hash_value;
+      for (uint32_t j = 0; j < hash_K; ++j) {
+        sprintf(hash_value_chr, "%u", hash_values[i][j]);
+        hash_value += hash_value_chr;
+      }
+      table.hash_keys[i] = hash_value;
+      table.buckets[hash_value].push_back(i);
     }
-    buckets[hash_value].push_back(i);
-  }
-
-  for (unordered_map<string, vector<uint32_t> >::iterator it = buckets.begin();
-      it != buckets.end(); ++it) {
-    Cluster one_cluster;
-    for (uint32_t i = 0; i < it->second.size(); ++i) {
-        one_cluster.AddClusterUpdateCenter(clusters[it->second[i]]);
-    }
-    new_clusters.push_back(one_cluster);
+    lsh_tables.push_back(table);
   }
 }
 
-void Clustering(const vector<pair<string, string> >& kmers,
+void Clustering(const vector<KMER>& kmers,
+                const uint32_t& hash_K,
                 const uint32_t& hash_L,
-                const double& cluster_distance_threshold,
+                const double& D_T,
+                const vector<LSHTable>& lsh_tables,
                 const string& output_file) {
   vector<Cluster> clusters(kmers.size());
-  Point p;
   for (uint32_t i = 0; i < kmers.size(); ++i) {
-    KmerToCoordinates(kmers[i].second, p);
-    clusters[i].AddPointUpdateCenter(p, i);
+    clusters[i].AddPoint(i);
+  }
+
+  vector<int> merged(kmers.size(), 0);
+  for (uint32_t i = 0; i < kmers.size(); ++i) {
+    if (merged[i] != 0) {
+      continue;
+    }
+
+    for (uint32_t l = 0; l < hash_L; ++l) {
+      string key = lsh_tables[l].hash_keys[i];
+      unordered_map<string, vector<uint32_t> >::const_iterator
+        it = lsh_tables[l].buckets.find(key);
+      const vector<uint32_t>& ids = it->second;
+      for (uint32_t j = 0; j < ids.size(); ++j) {
+        if (merged[ids[j]] != 0 || ids[j] == i) {
+          continue;
+        }
+        if (PairwiseDistance(kmers[i].point, kmers[ids[j]].point) <= D_T) {
+          clusters[i].AddCluster(clusters[ids[j]]);
+          merged[ids[j]] = 1;
+        }
+      }
+    }
   }
 
   vector<Cluster> new_clusters;
-  LSHClustering(clusters, hash_L, new_clusters);
-  clusters = new_clusters;
-  new_clusters.clear();
-  new_clusters.push_back(clusters[0]);
-
-  for (uint32_t i = 1; i < clusters.size(); ++i) {
-    double min_dis = std::numeric_limits<double>::max();
-    uint32_t min_id = -1;
-    for (uint32_t j = 0; j < new_clusters.size(); ++j) {
-      double dis = PairwiseDistance(clusters[i].center, new_clusters[j].center);
-      if (dis < min_dis) {
-        min_dis = dis;
-        min_id = j;
-      }
-    }
-    if (min_dis <= cluster_distance_threshold) {
-      new_clusters[min_id].AddClusterUpdateCenter(clusters[i]);
-    } else {
+  for (uint32_t i = 0; i < kmers.size(); ++i) {
+    if (merged[i] == 0) {
       new_clusters.push_back(clusters[i]);
     }
   }
 
   Evaluation(kmers, new_clusters);
-
-  //sort(kemrs_hash_value_to_string.begin(), kemrs_hash_value_to_string.end(), sortCMP);
-  /*
-   ofstream fout(output_file.c_str());
-   for (uint32_t i = 0; i < kmers.size(); ++i) {
-   uint32_t id = kemrs_hash_value_to_string[i].second;
-   fout << kmers[id].second << "\t" << kmers[id].first << "\t"
-   << kemrs_hash_value_to_string[i].first << endl;
-   }
-   fout.close();
-   */
 }
-
-void Clustering2(const vector<pair<string, string> >& kmers,
-                const uint32_t& hash_L,
-                const double& cluster_distance_threshold,
-                const string& output_file) {
-  vector<Cluster> clusters(kmers.size());
-  Point p;
-  for (uint32_t i = 0; i < kmers.size(); ++i) {
-    KmerToCoordinates(kmers[i].second, p);
-    clusters[i].AddPointUpdateCenter(p, i);
-  }
-  vector<Cluster> new_clusters;
-  LSHClustering(clusters, hash_L, new_clusters);
-  clusters = new_clusters;
-  new_clusters.clear();
-  new_clusters.push_back(clusters[0]);
-
-  for (uint32_t i = 1; i < clusters.size(); ++i) {
-    bool found = false;
-    for (uint32_t j = 0; j < new_clusters.size(); ++j) {
-      double dis = PairwiseDistance(clusters[i].center, new_clusters[j].center);
-      if (dis < cluster_distance_threshold) {
-        new_clusters[j].AddClusterUpdateCenter(clusters[i]);
-        found = true;
-        break;
-      }
-    }
-    if(found = false) {
-      new_clusters.push_back(clusters[i]);
-    }
-  }
-
-  Evaluation(kmers, new_clusters);
-
-  //sort(kemrs_hash_value_to_string.begin(), kemrs_hash_value_to_string.end(), sortCMP);
-  /*
-   ofstream fout(output_file.c_str());
-   for (uint32_t i = 0; i < kmers.size(); ++i) {
-   uint32_t id = kemrs_hash_value_to_string[i].second;
-   fout << kmers[id].second << "\t" << kmers[id].first << "\t"
-   << kemrs_hash_value_to_string[i].first << endl;
-   }
-   fout.close();
-   */
-}
-
 
 int main(int argc, const char *argv[]) {
   srand (time(NULL));try {
@@ -291,11 +221,14 @@ int main(int argc, const char *argv[]) {
     /* kmer length */
     uint32_t len = 10;
 
+    /* number of random lines for each LSH */
+    uint32_t hash_K = 8;
+
     /* number of hash functions */
-    uint32_t num_of_hash_functions = 8;
+    uint32_t hash_L = 8;
 
     /* distance threshold */
-    double cluster_distance_threshold = 50;
+    double D_T = 50;
 
     /* output file */
     string output_file;
@@ -306,10 +239,12 @@ int main(int argc, const char *argv[]) {
         kmers_file);
     opt_parse.add_opt("len", 'l', "kmer length", true,
         len);
-    opt_parse.add_opt("nhash", 'h', "number of hash functions", false,
-        num_of_hash_functions);
+    opt_parse.add_opt("hash_K", 'K', "number of hash functions", false,
+        hash_K);
+    opt_parse.add_opt("hash_L", 'L', "number of hash functions", false,
+        hash_L);
     opt_parse.add_opt("threshold", 't', "cluster center threshold", true,
-                      cluster_distance_threshold);
+        D_T);
     opt_parse.add_opt("output", 'o', "output file name", true, output_file);
 
     vector<string> leftover_args;
@@ -328,19 +263,23 @@ int main(int argc, const char *argv[]) {
     }
     /****************** END COMMAND LINE OPTIONS *****************/
     DIMENSION = AACoordinateSize * len;
-    vector<pair<string, string> > kmers;
+    vector<KMER> kmers;
+    Point p;
     ifstream fin(kmers_file.c_str());
     string line, name;
     while(fin >> line) {
       if(line[0] == '>') {
         name = line;
         fin >> line;
-        kmers.push_back(make_pair(name, line));
+        KmerToCoordinates(line, p);
+        kmers.push_back(KMER(name, line, p));
       }
     }
     fin.close();
     printf("The number of kmers is %u\n", kmers.size());
-    Clustering2(kmers, num_of_hash_functions, cluster_distance_threshold, output_file);
+    vector<LSHTable> lsh_tables;
+    BuildLSHTalbes(kmers, hash_K, hash_L, lsh_tables);
+    Clustering(kmers, hash_K, hash_L, D_T, lsh_tables, output_file);
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
     return EXIT_FAILURE;
