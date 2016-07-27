@@ -12,16 +12,8 @@ double LSH::DotProduct(const vector<double>& px, const vector<double>& py) {
   return dot_product;
 }
 
-int LSH::HashBucketIndex(const vector<double>& point) {
-  //double b = m_uniform_width(generator);
-  double len = DotProduct(a, point);
-  //cerr << len + b << endl;
-  //cout << "bucket_width " << m_bucket_width << endl;
-  return static_cast<int>((len + b) / m_bucket_width);
-}
-
-double LSH::DotProductPlusRandom(const vector<double>& point) {
-  //double b = m_uniform_width(generator);
-  double len = DotProduct(a, point);
-  return len + b;
+int LSH::HashBucketIndex(const vector<double>& point,
+                         const uint32_t& hash_K_id) {
+  return static_cast<int>((DotProduct(a[hash_K_id], point) + b[hash_K_id])
+      / m_bucket_width);
 }

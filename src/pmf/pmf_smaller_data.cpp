@@ -48,8 +48,8 @@ struct KMER {
 };
 
 struct LSHTable {
-  vector<string> hash_keys;
-  unordered_map<string, vector<uint32_t> > buckets;
+  vector<uint32_t> hash_keys;
+  unordered_map<uint32_t, vector<uint32_t> > buckets;
 };
 
 void KmerToCoordinates(const string& kmer, Point& point) {
@@ -129,37 +129,40 @@ void Evaluation(const vector<KMER>& kmers, const vector<Cluster>& clusters,
   << fn << endl;
 }
 
+int ModuloPrime(const int& hash_value) {
+  return (hash_value % 251 + 251) % 251;
+}
 
 void BuildLSHTalbes(const vector<KMER>& kmers, const uint32_t& hash_K,
-                    const uint32_t& hash_L, const double& D_T, const double gamma,
-                    vector<LSHTable>& lsh_tables) {
+                    const uint32_t& hash_L, const double& D_T,
+                    const double gamma, vector<LSHTable>& lsh_tables) {
   cout << hash_K << endl;
   cout << hash_L << endl;
   cout << D_T << endl;
   cout << gamma << endl;
   cout << "BuildLSHTalbes... " << endl;
   Point point;
-  vector<vector<uint32_t> > hash_values(kmers.size(),
-      vector<uint32_t>(hash_K, 0));
-  for(uint32_t l = 0;l < hash_L;++l) {
-    for(uint32_t k = 0;k < hash_K;++k) {
-      LSH lsh(DIMENSION, gamma);
-      for (uint32_t i = 0; i < kmers.size(); ++i) {
-        hash_values[i][k] = lsh.HashBucketIndex(kmers[i].point.data);
-      }
-    }
-
+  LSH lsh(DIMENSION, gamma, hash_K);
+  for (uint32_t l = 0; l < hash_L; ++l) {
     LSHTable table;
-    char hash_value_chr[100];
     table.hash_keys.resize(kmers.size());
     for (uint32_t i = 0; i < kmers.size(); ++i) {
-      string hash_value;
-      for (uint32_t j = 0; j < hash_K; ++j) {
-        sprintf(hash_value_chr, "%u", hash_values[i][j]);
-        hash_value += hash_value_chr;
+      uint32_t hash_value = 0;
+      for (uint32_t k = 0; k < hash_K; ++k) {
+        int bucket = lsh.HashBucketIndex(kmers[i].point.data, k);
+        hash_value <<= 8;
+        int bucket_id = ModuloPrime(bucket);
+       // cout << bucket << " " << bucket_id << endl;
+        hash_value += bucket_id;
+        // cerr << hash_values[i][k]  << "\t" << (hash_values[i][k] % 251 + 251) % 251 << "\t" << ModuloPrime(hash_values[i][k]) << endl;
       }
       table.hash_keys[i] = hash_value;
       table.buckets[hash_value].push_back(i);
+    }
+    cout << table.buckets.size() << endl;
+    uint32_t max_size = 0;
+    for(unordered_map<uint32_t, vector<uint32_t> >::iterator it =  table.buckets.begin();it != table.buckets.end();++it) {
+      if(it->second.size() > max_size) max_size = it->second.size();
     }
     lsh_tables.push_back(table);
   }
@@ -182,15 +185,15 @@ void Clustering(const vector<KMER>& kmers,
   }
 
   vector<int> merged(kmers.size(), 0);
-  for (uint32_t i = 0; i < kmers.size(); ++i) {
-    if (merged[i] != 0) {
-      continue;
-    }
-
-    for (uint32_t l = 0; l < hash_L; ++l) {
-      string key = lsh_tables[l].hash_keys[i];
-      unordered_map<string, vector<uint32_t> >::const_iterator
-        it = lsh_tables[l].buckets.find(key);
+  for (uint32_t l = 0; l < hash_L; ++l) {
+    clock_t start = clock();
+    for (uint32_t i = 0; i < kmers.size(); ++i) {
+      if (merged[i] != 0) {
+        continue;
+      }
+      uint32_t key = lsh_tables[l].hash_keys[i];
+      unordered_map<uint32_t, vector<uint32_t> >::const_iterator it =
+          lsh_tables[l].buckets.find(key);
       const vector<uint32_t>& ids = it->second;
       for (uint32_t j = 0; j < ids.size(); ++j) {
         if (merged[ids[j]] != 0 || ids[j] == i) {
@@ -202,6 +205,7 @@ void Clustering(const vector<KMER>& kmers,
         }
       }
     }
+    printf ("Clustering l=%d takes %lf seconds\n", l, (clock() - start)/ (double)CLOCKS_PER_SEC);
   }
 
   vector<Cluster> new_clusters;
@@ -218,7 +222,7 @@ void Clustering(const vector<KMER>& kmers,
   }
   fout.close();
 
-  Evaluation(kmers, new_clusters, hash_K, hash_L, D_T, gamma);
+  //Evaluation(kmers, new_clusters, hash_K, hash_L, D_T, gamma);
 }
 
 int main(int argc, const char *argv[]) {
@@ -313,8 +317,13 @@ int main(int argc, const char *argv[]) {
     fin.close();
     printf("The number of kmers is %u\n", kmers.size());
     vector<LSHTable> lsh_tables;
+    clock_t start = clock();
     BuildLSHTalbes(kmers, hash_K, hash_L, D_T, gamma, lsh_tables);
+    printf ("Build LSH Tables takes %lf seconds\n", (clock() - start)/ (double)CLOCKS_PER_SEC);
+
+    start = clock();
     Clustering(kmers, hash_K, hash_L, D_T, gamma, lsh_tables, output_file);
+    printf ("Clustering takes %lf seconds\n", (clock() - start)/ (double)CLOCKS_PER_SEC);
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
     return EXIT_FAILURE;
