@@ -20,21 +20,14 @@ class LSH {
   LSH(const uint32_t& dimension, const double& bucket_width = 1.0)
       : generator(rd()),
         m_dimension(dimension),
-        bucket_width(1.0),
+        m_bucket_width(bucket_width),
         m_normal(normal_distribution<double>(0.0, 1.0)),
         m_uniform_width(uniform_real_distribution<double>(0, bucket_width)),
-        m_uniform_1(uniform_real_distribution<double>(0, 1.0)),
-        unit_vector(dimension, 0) {
+        a(dimension, 0),
+        b(m_uniform_width(generator)) {
     for (uint32_t i = 0; i < dimension; ++i) {
-      unit_vector[i] = m_normal(generator);
+      a[i] = m_normal(generator);
     }
-
-//    double length = DotProduct(unit_vector, unit_vector);
-//    length = sqrt(length);
-//
-//    for (uint32_t i = 0; i < dimension; ++i) {
-//      unit_vector[i] = unit_vector[i] / length;
-//    }
   }
 
   int HashBucketIndex(const vector<double>& point);
@@ -45,11 +38,11 @@ class LSH {
   random_device rd;
   default_random_engine generator;
   uint32_t m_dimension;
-  double bucket_width;
+  double m_bucket_width;
   normal_distribution<double> m_normal;
   uniform_real_distribution<double> m_uniform_width;
-  uniform_real_distribution<double> m_uniform_1;
-  vector<double> unit_vector;
+  vector<double> a;
+  double b;
 };
 
 #endif // LSH_H

@@ -13,13 +13,15 @@ double LSH::DotProduct(const vector<double>& px, const vector<double>& py) {
 }
 
 int LSH::HashBucketIndex(const vector<double>& point) {
-  double b = m_uniform_1(generator);
-  double len = DotProduct(unit_vector, point);
-  return static_cast<int>((len + b) / bucket_width);
+  //double b = m_uniform_width(generator);
+  double len = DotProduct(a, point);
+  //cerr << len + b << endl;
+  //cout << "bucket_width " << m_bucket_width << endl;
+  return static_cast<int>((len + b) / m_bucket_width);
 }
 
 double LSH::DotProductPlusRandom(const vector<double>& point) {
-  double b = m_uniform_width(generator);
-  double len = DotProduct(unit_vector, point);
+  //double b = m_uniform_width(generator);
+  double len = DotProduct(a, point);
   return len + b;
 }

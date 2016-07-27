@@ -11,13 +11,19 @@ using namespace std;
 #define MIN_SIZE_CLUSTER 100
 
 void shuffleMotifs(vector<pair<string, vector<string> > >& clusters,
+                   const uint32_t& num_of_motifs,
+                   const uint32_t& num_of_seqs_in_one_motif,
                    const string& output_file) {
-  while(clusters.size() > 1000) {
-    clusters.pop_back();
-  }
-  for(int i = 0;i < clusters.size();++i) {
-    while(clusters[i].second.size() > 500) {
-      clusters[i].second.pop_back();
+  cout << num_of_motifs << endl;
+  cout << num_of_seqs_in_one_motif << endl;
+  if (num_of_motifs != 0 && num_of_seqs_in_one_motif != 0) {
+    while (clusters.size() > num_of_motifs) {
+      clusters.pop_back();
+    }
+    for (int i = 0; i < clusters.size(); ++i) {
+      while (clusters[i].second.size() > num_of_seqs_in_one_motif) {
+        clusters[i].second.pop_back();
+      }
     }
   }
   cout << "shuffleMotifs" << endl;
@@ -44,7 +50,8 @@ void shuffleMotifs(vector<pair<string, vector<string> > >& clusters,
         }
       }
       char name[100];
-      sprintf(name, "%s_motif%d_seq%d", clusters[i].first.c_str(), i, j);
+      //sprintf(name, "%s_motif%d_seq%d", clusters[i].first.c_str(), i, j);
+      sprintf(name, "motif%d_seq%d", i, j);
       shuffle_points[r] = make_pair(name, clusters[i].second[j]);
     }
   }
@@ -80,6 +87,9 @@ int main(int argc, const char *argv[]) {
       fprintf(stdout, "]\n");
     }
 
+    uint32_t num_of_motifs = 0;
+    uint32_t num_of_seqs_in_one_motif = 0;
+
     /* kmers file */
     string kmers_file;
 
@@ -95,6 +105,10 @@ int main(int argc, const char *argv[]) {
         kmers_file);
     opt_parse.add_opt("len", 'l', "kmer length", true,
         kmer_length);
+    opt_parse.add_opt("nx", 'm', "num of motifs", false,
+        num_of_motifs);
+    opt_parse.add_opt("nx", 'n', "num of seqeunce in one motifs", false,
+        num_of_seqs_in_one_motif);
     opt_parse.add_opt("output", 'o', "output file name", true, output_file);
 
     vector<string> leftover_args;
@@ -136,7 +150,8 @@ int main(int argc, const char *argv[]) {
     }
     cout << "Number of Clusters: " << clusters.size() << endl;
 
-    shuffleMotifs(clusters, output_file);
+    shuffleMotifs(clusters, num_of_motifs,
+        num_of_seqs_in_one_motif, output_file);
 
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
