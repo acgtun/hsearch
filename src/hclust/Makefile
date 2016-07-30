@@ -3,20 +3,20 @@
 #
 #    Authors: Haifeng Chen and Ting Chen
 #
-#    This file is part of the PMF.
+#    This file is part of the HCLUST.
 #
-#    PMF is free software: you can redistribute it and/or modify
+#    HCLUST is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
-#    PMF is distributed in the hope that it will be useful,
+#    HCLUST is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public License
-#    along with PMF.  If not, see <http://www.gnu.org/licenses/>.
+#    along with HCLUST.  If not, see <http://www.gnu.org/licenses/>.
 #
 
 ifndef SRC_ROOT
@@ -27,7 +27,7 @@ ifndef SMITHLAB_CPP
 SMITHLAB_CPP=./../smithlab_cpp
 endif
 
-PROGS = shuffle_kmers pmf_smaller_data pairwiseDistanceSampling
+PROGS = hclust shuffle_kmers
 
 CXX = g++
 CFLAGS = -Wall -std=c++11 -O3 -fPIC -fmessage-length=50 -w
@@ -38,7 +38,7 @@ ifeq "$(shell uname)" "Darwin"
 CFLAGS += -arch x86_64
 endif
 
-SRCCLUSTER = lsh.cpp
+SRCCLUSTER = 
 OBJCLUSTER = $(patsubst %.cpp,%.o,$(SRCCLUSTER))
 
 all:	$(PROGS)
@@ -46,20 +46,12 @@ all:	$(PROGS)
 %.o: %.cpp %.hpp
 	$(CXX) $(CFLAGS) -c -o $@ $< -I$(SMITHLAB_CPP)
 
-pmf : $(OBJCLUSTER) \
-	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
-
-repmf : $(OBJCLUSTER) \
-	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
-
-pairwiseDistanceSampling : $(OBJCLUSTER) \
+hclust : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
 shuffle_kmers : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
-pmf_smaller_data : $(OBJCLUSTER) \
-	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 %: %.cpp
 		$(CXX) $(CFLAGS) -o $@ $^ -I$(SMITHLAB_CPP)
 install: all

@@ -3,39 +3,39 @@
 #
 #    Authors: Haifeng Chen and Ting Chen
 #
-#    This file is part of the PMF.
+#    This file is part of the HCLUST.
 #
-#    PMF is free software: you can redistribute it and/or modify
+#    HCLUST is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
-#    PMF is distributed in the hope that it will be useful,
+#    HCLUST is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public License
-#    along with PMF.  If not, see <http://www.gnu.org/licenses/>.
+#    along with HCLUST.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-PMF = $(shell pwd)
+HCLUST = $(shell pwd)
 
 all:
-	@make -C src PMF=$(PMF) OPT=1
+	@make -C src HCLUST=$(HCLUST) OPT=1
 
 install:
-	@make -C src PMF=$(PMF) OPT=1 install
+	@make -C src HCLUST=$(HCLUST) OPT=1 install
 
 test:
-	@make -C src PMF=$(PMF) test
+	@make -C src HCLUST=$(HCLUST) test
 .PHONY: test
 
 clean:
-	@make -C src PMF=$(PMF) clean
+	@make -C src HCLUST=$(HCLUST) clean
 .PHONY: clean
 
 distclean: clean
-	@rm -rf $(PMF)/bin
-	@rm -rf $(PMF)/include
+	@rm -rf $(HCLUST)/bin
+	@rm -rf $(HCLUST)/include
 .PHONY: distclean

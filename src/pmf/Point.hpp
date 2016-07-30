@@ -1,4 +1,0 @@
-class Point
-{
-  vector<double>
-};
