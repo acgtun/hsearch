@@ -3,9 +3,12 @@
 
 #pragma once
 
+#include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <random>
 #include <vector>
 #include <string>
 #include <fstream>
@@ -13,9 +16,9 @@
 
 using namespace std;
 
-const char pmf_version[] = "1.0";
+const char hclust_version[] = "1.0";
 
-double coordinates[20][8] = {
+const double coordinates[20][8] = {
 		{-0.876280,  3.598596,  2.554616, -0.729216,  0.698828,  1.221507, -2.765205, -3.163091},
 		{-4.111404, -1.936791, -2.682295,  0.942498,  6.924314, -1.195785, -1.639269,  0.615381},
 		{-7.471612, -2.468058,  0.932738, -4.488355,  0.553080, -3.081577,  0.368010,  4.223792},

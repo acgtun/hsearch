@@ -27,7 +27,7 @@ ifndef SMITHLAB_CPP
 SMITHLAB_CPP=./../smithlab_cpp
 endif
 
-PROGS = pmf repmf pairwiseDistanceSampling shuffle_kmers pmf_smaller_data
+PROGS = shuffle_kmers pmf_smaller_data pairwiseDistanceSampling
 
 CXX = g++
 CFLAGS = -Wall -std=c++11 -O3 -fPIC -fmessage-length=50 -w

@@ -79,7 +79,7 @@ int main(int argc, const char *argv[]) {
 
     if (argc > 1 && help_info == false) {
       /* show the command line one the screen */
-      fprintf(stdout, "[WELCOME TO pairwiseDistanceSampling v%s]\n", pmf_version);
+      fprintf(stdout, "[WELCOME TO pairwiseDistanceSampling v%s]\n", hclust_version);
       fprintf(stdout, "[%s", argv[0]);
       for (int i = 1; i < argc; i++) {
         fprintf(stdout, " %s", argv[i]);

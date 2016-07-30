@@ -1,29 +1,28 @@
+#include <math.h>
+#include <stdint.h>
+
 #include "util.hpp"
 #include "lsh.hpp"
 
 #include "smithlab_os.hpp"
 #include "OptionParser.hpp"
 
-#include <stdint.h>
 #include <unordered_set>
 #include <unordered_map>
 
 using namespace std;
 
 uint32_t DIMENSION = 0;
-
+typedef unordered_map<string, vector<uint32_t> > HashTable;
 
 struct Point {
   Point()
       : data(DIMENSION, 0.0) {
   }
-
   vector<double> data;
 };
 
 struct Cluster {
-  vector<uint32_t> ids;
-
   void AddPoint(const uint32_t& id) {
     ids.push_back(id);
   }
@@ -33,10 +32,10 @@ struct Cluster {
       ids.push_back(cluster.ids[i]);
     }
   }
+  vector<uint32_t> ids;
 };
 
-
-struct KMER {
+/*struct KMER {
   KMER(const string& _name, const string& _seq, const Point& _point) :
     name(_name),
     seq(_seq),
@@ -45,12 +44,7 @@ struct KMER {
   string name;
   string seq;
   Point point;
-};
-
-struct LSHTable {
-  vector<uint32_t> hash_keys;
-  unordered_map<uint32_t, vector<uint32_t> > buckets;
-};
+};*/
 
 void KmerToCoordinates(const string& kmer, Point& point) {
   size_t k = 0;
@@ -58,6 +52,90 @@ void KmerToCoordinates(const string& kmer, Point& point) {
     int AA = base[kmer[i] - 'A'];
     for (size_t j = 0; j < AACoordinateSize; ++j) {
       point.data[k++] = coordinates[AA][j];
+    }
+  }
+}
+
+Point KmerToCoordinates(const string& kmer) {
+  Point point;
+  size_t k = 0;
+  for (size_t i = 0; i < kmer.size(); ++i) {
+    int AA = base[kmer[i] - 'A'];
+    for (size_t j = 0; j < AACoordinateSize; ++j) {
+      point.data[k++] = coordinates[AA][j];
+    }
+  }
+  return point;
+}
+
+struct KMER {
+  KMER(const string& _name, const string& _seq)
+      : name(_name),
+        seq(_seq) {
+  }
+  string name;
+  string seq;
+  Point point() const {
+    return KmerToCoordinates(seq);
+  }
+};
+
+Point Center(const vector<KMER>& kmers, const vector<uint32_t>& ids) {
+  Point center;
+  for (uint32_t i = 0; i < ids.size(); ++i) {
+    for (uint32_t j = 0; j < DIMENSION; ++j) {
+      center.data[j] += kmers[ids[i]].point().data[j];
+    }
+  }
+  for (uint32_t j = 0; j < DIMENSION; ++j) {
+    center.data[j] /= DIMENSION;
+  }
+  return center;
+}
+
+double Distance(const Point& a, const Point& b) {
+  double dis = 0, r = 0;
+  for (int i = 0; i < a.data.size(); ++i) {
+    r = (a.data[i] - b.data[i]);
+    dis += r * r;
+  }
+  return sqrt(dis);
+}
+
+void PairwiseDistanceSampling(const vector<Point>& points, ofstream& fout) {
+  int r1 = 0, r2 = 0;
+  for (int i = 0; i < points.size(); i += r1) {
+    for (int j = i + 1; j < points.size(); j += r2) {
+      r1 = random() % 10;
+      r2 = random() % 10;
+      if (r1 == 0 || r2 == 0) {
+        fout << Distance(points[i], points[j]) << endl;
+        r1 += 5;
+        r2 += 5;
+      }
+    }
+  }
+}
+
+void PairwiseDistanceSampling(const vector<KMER>& kmers,
+                              const vector<uint32_t>& ids,
+                              const uint32_t& hash_W,
+                              pair<uint32_t, uint32_t>& count,
+                              pair<uint32_t, uint32_t>& count25,
+                              ofstream& fout) {
+  for (int i = 0; i < ids.size(); ++i) {
+    for (int j = i + 1; j < ids.size(); ++j) {
+      double dis = Distance(kmers[ids[i]].point(), kmers[ids[j]].point());
+      if (dis <= hash_W)
+        count.first++;
+      else
+        count.second++;
+
+      if (dis <= 25)
+        count25.first++;
+      else
+        count25.second++;
+      fout << dis << endl;
     }
   }
 }
@@ -70,142 +148,210 @@ double PairwiseDistance(const Point& a, const Point& b) {
   return sqrt(sum);
 }
 
-void Evaluation(const vector<KMER>& kmers, const vector<Cluster>& clusters,
-                const uint32_t& hash_K, const uint32_t& hash_L,
-                const double& D_T, const double& gamma) {
-  cout << "number of clusters by our methods " << clusters.size() << endl;
-
-  vector<string> ground_truth(kmers.size());
-  for (uint32_t i = 0; i < kmers.size(); ++i) {
-    size_t pos = kmers[i].name.find("_motif");
-    size_t pos_ = kmers[i].name.find_last_of('_');
-    string motif_num = kmers[i].name.substr(pos + 6, pos_ - pos - 6);
-    ground_truth[i] = motif_num;
-  }
-
-  vector<uint32_t> cluster_id(kmers.size(), 0);
-  for (uint32_t i = 0; i < clusters.size(); ++i) {
-    for (uint32_t j = 0; j < clusters[i].ids.size(); ++j) {
-      cluster_id[clusters[i].ids[j]] = i;
-    }
-  }
-
-  uint64_t tp = 0, tn = 0, fp = 0, fn = 0;
-  for (uint32_t i = 0; i < kmers.size(); ++i) {
-    if (i % 50000 == 0 && i != 0) {
-      cout << i / (double) kmers.size() << " tp: " << tp << " tn: " << tn << " fp: " << fp
-      << " fn: " << fn << endl;
-      cout << "recall: " << (double) tp / ((double) tp + fn) << endl;
-      cout << "precision: " << (double) tp / ((double) tp + fp) << endl;
-    }
-    // if(i > 50000) break;
-    for (uint32_t j = i + 1; j < kmers.size(); ++j) {
-      if (ground_truth[i] == ground_truth[j]) {
-        if (cluster_id[i] == cluster_id[j])
-        tp++;
-        else
-        fn++;
-      } else {
-        if (cluster_id[i] == cluster_id[j])
-        fp++;
-        else
-        tn++;
-      }
-    }
-  }
-  double recall = (double) tp / ((double) tp + fn);
-  double precision = (double) tp / ((double) tp + fp);
-  double RI = ((double) tp + tn) / ((double) tp + fp + fn + tn);
-  double F1 = 2 * recall * precision / (recall + precision);
-  cout << "recall_precision:KLT " << hash_K << "\t"
-  << hash_L << "\t" << D_T <<  "\t" << gamma << "\t"
-  << recall << "\t"
-  << precision << "\t"
-  << RI << "\t"
-  << F1 << "\t"
-  << tp << "\t"
-  << tn << "\t"
-  << fp << "\t"
-  << fn << endl;
-}
-
 int ModuloPrime(const int& hash_value) {
   return (hash_value % 251 + 251) % 251;
 }
 
-void BuildLSHTalbes(const vector<KMER>& kmers, const uint32_t& hash_K,
-                    const uint32_t& hash_L, const double& D_T,
-                    const double gamma, vector<LSHTable>& lsh_tables) {
-  cout << hash_K << endl;
-  cout << hash_L << endl;
-  cout << D_T << endl;
-  cout << gamma << endl;
+
+void BuildLSHTalbe(const vector<KMER>& kmers, const LSH& lsh,
+                   vector<uint8_t>& merged, HashTable& lsh_table) {
   cout << "BuildLSHTalbes... " << endl;
-  Point point;
-  LSH lsh(DIMENSION, gamma, hash_K);
-  for (uint32_t l = 0; l < hash_L; ++l) {
-    LSHTable table;
-    table.hash_keys.resize(kmers.size());
-    for (uint32_t i = 0; i < kmers.size(); ++i) {
-      uint32_t hash_value = 0;
-      for (uint32_t k = 0; k < hash_K; ++k) {
-        int bucket = lsh.HashBucketIndex(kmers[i].point.data, k);
-        hash_value <<= 8;
-        int bucket_id = ModuloPrime(bucket);
-       // cout << bucket << " " << bucket_id << endl;
-        hash_value += bucket_id;
-        // cerr << hash_values[i][k]  << "\t" << (hash_values[i][k] % 251 + 251) % 251 << "\t" << ModuloPrime(hash_values[i][k]) << endl;
-      }
-      table.hash_keys[i] = hash_value;
-      table.buckets[hash_value].push_back(i);
-    }
-    cout << table.buckets.size() << endl;
-    uint32_t max_size = 0;
-    for(unordered_map<uint32_t, vector<uint32_t> >::iterator it =  table.buckets.begin();it != table.buckets.end();++it) {
-      if(it->second.size() > max_size) max_size = it->second.size();
-    }
-    lsh_tables.push_back(table);
+  for (uint32_t i = 0; i < kmers.size(); ++i) {
+    if (merged[i] != 0)
+      continue;
+    lsh_table[lsh.HashKey(kmers[i].point().data)].push_back(i);
   }
+  /*
+   ofstream fout("innerdisincluster.txt");
+   pair<uint32_t, uint32_t> count;
+   pair<uint32_t, uint32_t> count25;
+   for(HashTable::iterator it = table.begin();it != table.end();++it) {
+   PairwiseDistanceSampling(kmers, it->second, hash_W, count, count25, fout);
+   }
+   fout.close();
+   cout << "seee" << endl;
+   cout << count.first / ((double)count.first + count.second) << endl;
+   cout << count.second / ((double)count.first + count.second) << endl;
+   cout << "see25" << endl;
+   cout << count25.first / ((double)count25.first + count25.second) << endl;
+   cout << count25.second / ((double)count25.first + count25.second) << endl;
+   cout << "complete sampling..." << endl;
+   */
 }
 
-void Clustering(const vector<KMER>& kmers,
-                const uint32_t& hash_K,
-                const uint32_t& hash_L,
-                const double& D_T,
-                const double& gamma,
-                const vector<LSHTable>& lsh_tables,
-                const string& output_file) {
+void ObtainCenters(const vector<KMER>& kmers, const uint32_t& hash_K,
+                const uint32_t& hash_L, const uint32_t& hash_W,
+                const double& D_T, const double& ratio_D_T,
+                const uint32_t& center_S,
+                 vector<Point>& queries,
+                 const string& output_file) {
   cout << hash_K << endl;
   cout << hash_L << endl;
+  cout << hash_W << endl;
   cout << D_T << endl;
   cout << "Clustering... " << endl;
   vector<Cluster> clusters(kmers.size());
   for (uint32_t i = 0; i < kmers.size(); ++i) {
     clusters[i].AddPoint(i);
   }
-
-  vector<int> merged(kmers.size(), 0);
+  double threshold = D_T * ratio_D_T;
+  vector<uint8_t> merged(kmers.size(), 0);
   for (uint32_t l = 0; l < hash_L; ++l) {
     clock_t start = clock();
+    HashTable lsh_table;
+    LSH lsh(DIMENSION, hash_K, hash_W);
+    BuildLSHTalbe(kmers, lsh, merged, lsh_table);
     for (uint32_t i = 0; i < kmers.size(); ++i) {
       if (merged[i] != 0) {
         continue;
       }
-      uint32_t key = lsh_tables[l].hash_keys[i];
-      unordered_map<uint32_t, vector<uint32_t> >::const_iterator it =
-          lsh_tables[l].buckets.find(key);
+      string key = lsh.HashKey(kmers[i].point().data);
+      HashTable::const_iterator it = lsh_table.find(key);
       const vector<uint32_t>& ids = it->second;
       for (uint32_t j = 0; j < ids.size(); ++j) {
         if (merged[ids[j]] != 0 || ids[j] == i) {
           continue;
         }
-        if (PairwiseDistance(kmers[i].point, kmers[ids[j]].point) <= D_T) {
+        if (PairwiseDistance(kmers[i].point(), kmers[ids[j]].point())
+            <= threshold) {
           clusters[i].AddCluster(clusters[ids[j]]);
           merged[ids[j]] = 1;
         }
       }
     }
-    printf ("Clustering l=%d takes %lf seconds\n", l, (clock() - start)/ (double)CLOCKS_PER_SEC);
+    printf("Clustering l=%d takes %lf seconds\n", l,
+           (clock() - start) / (double) CLOCKS_PER_SEC);
+  }
+
+  for (uint32_t i = 0; i < kmers.size(); ++i) {
+    if (merged[i] == 0 && clusters[i].ids.size() >= center_S) {
+      queries.push_back(Center(kmers, clusters[i].ids));
+    }
+  }
+//////////////////////////////////
+  pair<uint32_t, uint32_t> count;
+  pair<uint32_t, uint32_t> count25;
+  string see = output_file;
+  see += "see.dista.txt";
+  ofstream fsee(see.c_str());
+  int cnt = 0;
+  for (uint32_t i = 0; i < clusters.size(); ++i) {
+    if(merged[i] != 0 ||  clusters[i].ids.size()  < center_S) continue;
+    cnt++;
+    PairwiseDistanceSampling(kmers, clusters[i].ids, D_T, count, count25,
+                             fsee);
+  }
+  cout << "cnt = " << cnt << endl;
+  cout << "seee" << endl;
+  cout << count.first / ((double)count.first + count.second) << endl;
+  cout << count.second / ((double)count.first + count.second) << endl;
+  cout << "see25" << endl;
+  cout << count25.first / ((double)count25.first + count25.second) << endl;
+  cout << count25.second / ((double)count25.first + count25.second) << endl;
+  fsee.close();
+}
+
+void AddPoints2Centers(const vector<KMER>& kmers, const vector<Point>& queries,
+                       const uint32_t& hash_K, const uint32_t& hash_L,
+                       const uint32_t& hash_W, const double& D_T,
+                       const string& output_file) {
+  vector<uint8_t> merged(kmers.size(), 0);
+  vector<Cluster> clusters(queries.size());
+  for (uint32_t l = 0; l < hash_L; ++l) {
+    clock_t start = clock();
+    HashTable lsh_table;
+    LSH lsh(DIMENSION, hash_K, hash_W);
+    BuildLSHTalbe(kmers, lsh, merged, lsh_table);
+    for (uint32_t i = 0; i < queries.size(); ++i) {
+      string key = lsh.HashKey(queries[i].data);
+      HashTable::const_iterator it = lsh_table.find(key);
+      if (it == lsh_table.end())
+        continue;
+      const vector<uint32_t>& ids = it->second;
+      for (uint32_t j = 0; j < ids.size(); ++j) {
+        if (merged[ids[j]] != 0) {
+          continue;
+        }
+        if (PairwiseDistance(queries[i], kmers[ids[j]].point()) <= 0.5 * D_T) {
+          clusters[i].ids.push_back(ids[j]);
+          merged[ids[j]] = 1;
+        }
+      }
+    }
+    printf("Clustering l=%d takes %lf seconds\n", l,
+           (clock() - start) / (double) CLOCKS_PER_SEC);
+  }
+  ofstream fout(output_file.c_str());
+  pair<uint32_t, uint32_t> count;
+  pair<uint32_t, uint32_t> count25;
+  string see = output_file;
+  see += "see.dxxxxxxxxxxxxxista.txt";
+  ofstream fsee(see.c_str());
+  for (uint32_t i = 0; i < clusters.size(); ++i) {
+    if (clusters[i].ids.size() == 0) {
+      continue;
+    }
+    PairwiseDistanceSampling(kmers, clusters[i].ids, D_T, count, count25, fsee);
+    fout << "#cluster" << i << endl;
+    cout << "clusters[i].ids.size() = " << clusters[i].ids.size() << endl;
+    for (uint32_t j = 0; j < clusters[i].ids.size(); ++j) {
+      fout << kmers[clusters[i].ids[j]].name << endl;
+    }
+  }
+  cout << "seee" << endl;
+  cout << count.first / ((double)count.first + count.second) << endl;
+  cout << count.second / ((double)count.first + count.second) << endl;
+  cout << "see25" << endl;
+  cout << count25.first / ((double)count25.first + count25.second) << endl;
+  cout << count25.second / ((double)count25.first + count25.second) << endl;
+  fsee.close();
+  fout.close();
+}
+
+void ClusteringLikeCDHIT(const vector<KMER>& kmers,
+                const uint32_t& hash_K,
+                const uint32_t& hash_L,
+                const double& D_T,
+                const double& hash_W,
+                const string& output_file) {
+  cout << hash_K << endl;
+  cout << hash_L << endl;
+  cout << D_T << endl;
+  cout << "Clustering LikeCDHIT... " << endl;
+  vector<Cluster> clusters(kmers.size());
+  for (uint32_t i = 0; i < kmers.size(); ++i) {
+    clusters[i].AddPoint(i);
+  }
+  vector<uint8_t> merged(kmers.size(), 0);
+  for (uint32_t l = 0; l < hash_L; ++l) {
+    clock_t start = clock();
+    HashTable lsh_table;
+    LSH lsh(DIMENSION, hash_K, hash_W);
+    BuildLSHTalbe(kmers, lsh, merged, lsh_table);
+    printf("Build LSH l=%d takes %lf seconds\n", l,
+           (clock() - start) / (double) CLOCKS_PER_SEC);
+    for (uint32_t i = 0; i < kmers.size(); ++i) {
+      if (merged[i] != 0) {
+        continue;
+      }
+      string key = lsh.HashKey(kmers[i].point().data);
+     // for (key_i = key - 1; key_i <= key + 1; ++key_i) {
+        HashTable::const_iterator it = lsh_table.find(key);
+        const vector<uint32_t>& ids = it->second;
+        cout << i << " " << ids.size() << endl;
+        for (uint32_t j = 0; j < ids.size(); ++j) {
+          if (merged[ids[j]] != 0 || ids[j] == i) {
+            continue;
+          }
+          if (PairwiseDistance(kmers[i].point(), kmers[ids[j]].point()) <= D_T) {
+            clusters[i].AddCluster(clusters[ids[j]]);
+            merged[ids[j]] = 1;
+          }
+        }
+      }
+   // }
+    printf("Clustering l=%d takes %lf seconds\n", l,
+           (clock() - start) / (double) CLOCKS_PER_SEC);
   }
 
   vector<Cluster> new_clusters;
@@ -221,8 +367,7 @@ void Clustering(const vector<KMER>& kmers,
     }
   }
   fout.close();
-
-  //Evaluation(kmers, new_clusters, hash_K, hash_L, D_T, gamma);
+ //Evaluation(kmers, new_clusters, hash_K, hash_L, D_T, gamma);
 }
 
 int main(int argc, const char *argv[]) {
@@ -240,7 +385,7 @@ int main(int argc, const char *argv[]) {
 
     if (argc > 1 && help_info == false) {
       /* show the command line one the screen */
-      fprintf(stdout, "[WELCOME TO PMF v%s]\n", pmf_version);
+      fprintf(stdout, "[WELCOME TO PMF v%s]\n", hclust_version);
       fprintf(stdout, "[%s", argv[0]);
       for (int i = 1; i < argc; i++) {
         fprintf(stdout, " %s", argv[i]);
@@ -264,7 +409,13 @@ int main(int argc, const char *argv[]) {
     double D_T = 50;
 
     /* bucket width */
-    double gamma = 50;
+    double hash_W = 50;
+
+    /* center support size */
+    uint32_t center_S = 20;
+
+    /* CDHIT like clustering */
+    bool CDHIT_like = false;
 
     /* output file */
     string output_file;
@@ -279,10 +430,14 @@ int main(int argc, const char *argv[]) {
         hash_K);
     opt_parse.add_opt("hash_L", 'L', "number of hash functions", true,
         hash_L);
-    opt_parse.add_opt("threshold", 't', "cluster center threshold", true,
+    opt_parse.add_opt("threshold", 'T', "cluster center threshold", true,
         D_T);
-    opt_parse.add_opt("gamma", 'g', "bucketwidth", true,
-                      gamma);
+    opt_parse.add_opt("window", 'W', "bucketwidth", true,
+                      hash_W);
+    opt_parse.add_opt("centerS", 'S', "number of points to support center", true,
+        center_S);
+    opt_parse.add_opt("CDHIT", 'C', "CDHIT like clustering", false,
+        CDHIT_like);
     opt_parse.add_opt("output", 'o', "output file name", true, output_file);
 
     vector<string> leftover_args;
@@ -310,19 +465,25 @@ int main(int argc, const char *argv[]) {
         name = line;
         fin >> line;
         //cout << line << endl;
-        KmerToCoordinates(line, p);
-        kmers.push_back(KMER(name, line, p));
+        //KmerToCoordinates(line, p);
+        kmers.push_back(KMER(name, line));
       }
     }
     fin.close();
     printf("The number of kmers is %u\n", kmers.size());
-    vector<LSHTable> lsh_tables;
+    vector<HashTable> lsh_tables;
     clock_t start = clock();
-    BuildLSHTalbes(kmers, hash_K, hash_L, D_T, gamma, lsh_tables);
-    printf ("Build LSH Tables takes %lf seconds\n", (clock() - start)/ (double)CLOCKS_PER_SEC);
+    //BuildLSHTalbes(kmers, hash_K, hash_L, hash_W, D_T, ratio_D_T lsh_tables);
+    //printf ("Build LSH Tables takes %lf seconds\n", (clock() - start)/ (double)CLOCKS_PER_SEC);
 
-    start = clock();
-    Clustering(kmers, hash_K, hash_L, D_T, gamma, lsh_tables, output_file);
+    //start = clock();
+    if(CDHIT_like != true) {
+      vector<Point> queries;
+      ObtainCenters(kmers, hash_K, hash_L, hash_W, D_T, 1, center_S, queries, output_file);
+      AddPoints2Centers(kmers, queries, hash_K / 2, hash_L, hash_W, D_T, output_file);
+    } else {
+      ClusteringLikeCDHIT( kmers, hash_K,hash_L, D_T, hash_W,output_file);
+    }
     printf ("Clustering takes %lf seconds\n", (clock() - start)/ (double)CLOCKS_PER_SEC);
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());
