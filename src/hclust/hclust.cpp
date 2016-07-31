@@ -78,6 +78,7 @@ void BuildLSHTalbe(const vector<KMER>& kmers, const LSH& lsh,
 void Clustering(const vector<KMER>& kmers, const uint32_t& hash_K,
                 const uint32_t& hash_L, const double& hash_W,
                 const double& hash_R, const string& output_file) {
+  unordered_map<uint64_t, uint32_t> count;
   vector<uint32_t> root(kmers.size(), 0);
   for (uint32_t i = 0; i < kmers.size(); ++i) {
     root[i] = i;
@@ -88,9 +89,16 @@ void Clustering(const vector<KMER>& kmers, const uint32_t& hash_K,
     HashTable lsh_table;
     LSH lsh(DIMENSION, hash_K, hash_W);
     BuildLSHTalbe(kmers, lsh, root, lsh_table);
+    uint64_t cnt = 0;
+    for(HashTable::iterator it = lsh_table.begin();it != lsh_table.end();++it) {
+      cnt += it->second.size();
+    }
+    cout << "num of buckets " << lsh_table.size() << endl;
+    cout << "cnt = " << cnt << endl;
     printf("Build LSH l=%d takes %lf seconds\n", l,
            (clock() - start) / (double) CLOCKS_PER_SEC);
     start = clock();
+    uint64_t sum_count = 0;
     for (uint32_t i = 0; i < kmers.size(); ++i) {
       if (root[i] != i) {
         continue;
@@ -99,19 +107,44 @@ void Clustering(const vector<KMER>& kmers, const uint32_t& hash_K,
       HashTable::const_iterator it = lsh_table.find(key);
       const vector<uint32_t>& ids = it->second;
       cout << i << " " << ids.size() << endl;
+      sum_count += ids.size();
       for (uint32_t j = 0; j < ids.size(); ++j) {
-        if (root[ids[j]] != ids[j] || ids[j] == i) {
+        if (root[ids[j]] != ids[j] || ids[j] < i) {
           continue;
         }
+        uint64_t val;
+        if (i < ids[j]) {
+          val = i;
+          val <<= 32;
+          val += ids[j];
+        } else {
+          val = ids[j];
+          val <<= 32;
+          val += i;
+        }
+        count[val]++;
+
         if (PairwiseDistance(kmers[i].point(), kmers[ids[j]].point())
             <= hash_R) {
           root[ids[j]] = i;
         }
       }
     }
+    cout << "sum_count " << sum_count << endl;
     printf("Clustering l=%d takes %lf seconds\n", l,
            (clock() - start) / (double) CLOCKS_PER_SEC);
   }
+
+  string count_out = output_file;
+  count_out += "count.txt";
+  ofstream fsee(count_out.c_str());
+  for(unordered_map<uint64_t, uint32_t>::iterator it = count.begin();it != count.end();++it) {
+    uint32_t val1 = it->first >> 32; //higher
+    uint32_t val2 = (it->first << 32) >> 32;
+    fsee << it->first << "\t" << val1 << "\t" << val2 << "\t" << it->second << endl;
+    if(it->second > 2) cout << it->first << "\t" << val1 << "\t" << val2 << "\t" << it->second << endl;
+  }
+  fsee.close();
 
   ofstream fout(output_file.c_str());
   for (uint32_t i = 0; i < kmers.size(); ++i) {
