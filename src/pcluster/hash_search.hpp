@@ -96,14 +96,10 @@ typedef struct STALNMNT {
 } STAlnmnt;
 
 /* map for store hit results */
-typedef pair<int, int> PIDX;
+typedef uint32_t PIDX;
 struct pairComp {
   bool operator()(const PIDX& lhs, const PIDX& rhs) const {
-    if (lhs.first != rhs.first) {
-      return lhs.first < rhs.first;
-    } else {
-      return lhs.second < rhs.second;
-    }
+    return lhs < rhs;
   }
 };
 typedef multimap<PIDX, CHitUnit, pairComp> MRESULT;
@@ -246,11 +242,14 @@ class CHashSearch {
 
   ofstream fm8;
   ofstream faln;
+
+  vector<uint32_t>& m_protienIDS;
+  ProteinDB& m_proteinDB;
+
  public:
-  void BuildProteinsIndex(const vector<uint32_t>& protienIDS,
-                          const ProteinDB& proteinDB);
-  void ProteinSearching(const vector<uint32_t>& proteinIDS,
-                        const ProteinDB& proteinDB);
+  void BuildProteinsIndex(vector<uint32_t>& protienIDS,
+                          ProteinDB& proteinDB);
+  void ProteinSearching();
 };
 
 inline void CHashSearch::InitAlignPara() {

@@ -161,8 +161,11 @@ struct CompDbObj {
   uint& m_unMer;
 };
 
-void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
-                                     const ProteinDB& proteinDB) {
+void CHashSearch::BuildProteinsIndex(vector<uint32_t>& protienIDS,
+                                     ProteinDB& proteinDB) {
+  m_protienIDS = protienIDS;
+  m_proteinDB = proteinDB;
+
   for (uint i = 0; i < m_unTotalIdx; ++i) {
     vDWordCnts[i] = 0;
     vDHash[i].clear();
@@ -257,24 +260,23 @@ void CHashSearch::BuildProteinsIndex(const vector<uint32_t>& protienIDS,
   unDMedian = vDWordCnts[m_unTotalIdx / 2];
 }
 
-void CHashSearch::ProteinSearching(const vector<uint32_t>& proteinIDS,
-                                   const ProteinDB& proteinDB) {
+void CHashSearch::ProteinSearching() {
 
   // set BlastStat
   InitAlignPara();
   // construct query package
   CDbPckg Db(vDHash, vDSeqs, vDLens, vDNames, vDComp, vDFreq, vDWordCnts,
              unDMedian);
-  for (size_t i = 0; i < proteinIDS.size(); ++i) {
+  for (size_t i = 0; i < m_protienIDS.size(); ++i) {
     vector<uchar> vQSeqs;
     vector<uint> vQLens;
     VNAMES vQNames;
 
     vQLens.push_back(0);
-    vQNames.push_back(proteinDB.pro_names[i]);
-    fm8 << proteinDB.pro_names[i] << endl;
-    for (size_t j = 0; j < proteinDB.pro_seqs[i].size(); ++j) {
-      vQSeqs.push_back(proteinDB.pro_seqs[i][j]);
+    vQNames.push_back(m_proteinDB.pro_names[i]);
+    fm8 << m_proteinDB.pro_names[i] << endl;
+    for (size_t j = 0; j < m_proteinDB.pro_seqs[i].size(); ++j) {
+      vQSeqs.push_back(m_proteinDB.pro_seqs[i][j]);
     }
     vQLens.push_back(vQSeqs.size());
     Encode(vQSeqs);
@@ -519,13 +521,13 @@ int CHashSearch::ExtendSeq2Set(int nSeed, uint unLocalSeedLen,
   nEd = itShort - Db.m_vComp[nSeed].begin();
 
   //cout << nSt << " " << nEd << endl;
- //////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////
   //sequence extension
   // todo vDSet[j] >> 11 protein ID
   STAlnmnt stAlnmnt;
   for (int j = nSt; j < nEd; ++j) {
     //if (vDNames[vDSet[j] >> 11] == "7719.ENSCINP00000006706") {
-      //int zya = 0;
+    //int zya = 0;
     //}
 
     uint unDLen, unDSeedBeg;
@@ -1031,13 +1033,12 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
     }
   }
 
-  MRESULT::iterator it = mRes.lower_bound(pair<int, int>(nQIdx, nDIdx));
+  MRESULT::iterator it = mRes.lower_bound(nDIdx);
   /****************************************************************/
   // for sum evalue, comment this
   // note: here, the hits are stored according to it's real query index, not 1->6 frame query index
   // store all results
-  if (mRes.end() != it && (*it).first.first == nQIdx
-      && (*it).first.second == nDIdx
+  if (mRes.end() != it && (*it).first == nDIdx
       && (*it).second.nQSt == unQSeedBeg - stAlnmnt.nQBwd
       && (*it).second.nDSt == unDSeedBeg - stAlnmnt.nDBwd
       && (*it).second.nQEd == unQSeedBeg + unLocalSeedLen + stAlnmnt.nQFwd - 1
@@ -1062,7 +1063,7 @@ void CHashSearch::CalRes(int nQIdx, uchar* pQ, int nQOriLen, uint unQSeedBeg,
   /****************************************************************/
   {
     MRESULT::iterator itTmp = mRes.insert(
-        it, MRESULT::value_type(pair<int, int>(nQIdx, nDIdx), CHitUnit()));
+        it, MRESULT::value_type(nDIdx, CHitUnit()));
     CHitUnit& st = (*itTmp).second;
     st.nQrLen = nQOriLen;
     st.nDbIdx = nDIdx;
@@ -1099,25 +1100,25 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
   }
 
   MIT it = mRes.begin();
-  int nQrIdx = (*it).first.first;
+  //int nQrIdx = (*it).first.first;
   MRESULT::iterator itFind = mRes.end();
   vector<CHitUnit> vTemp;
   vTemp.reserve(distance(it, itFind));
 
   // for sum evalue, comment this
-  int nDIdx = it->first.second;
+  int nDIdx = it->first;
   vTemp.push_back(it->second);
   int nSt = 0;
   MRESULT::iterator itTemp = it;
   ++itTemp;
   for (; itTemp != itFind; ++itTemp) {
-    if (itTemp->first.second != nDIdx) {
+    if (itTemp->first != nDIdx) {
       if (vTemp.size() - nSt > 1) {
         int nLen = Db.m_vLens[nDIdx + 1] - Db.m_vLens[nDIdx];
         SumEvalue(vTemp, nSt, vTemp.size(), nLen);
       }
 
-      nDIdx = itTemp->first.second;
+      nDIdx = itTemp->first;
       nSt = vTemp.size();
     }
     vTemp.push_back(itTemp->second);
@@ -1158,7 +1159,7 @@ void CHashSearch::PrintRes(MRESULT& mRes, CQrPckg& Query, CDbPckg& Db) {
     st.nDSt = 1848 * nFac + st.nDSt;
     st.nDEd = 1848 * nFac + st.nDEd;
 
-    st.sQName = Query.m_vNames[nQrIdx];
+    //todo st.sQName = Query.m_vNames[nQrIdx];
     st.sDName = Db.m_vNames[st.nDbIdx];
   }
 
