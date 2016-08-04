@@ -65,7 +65,8 @@ void shuffleMotifs(vector<pair<string, vector<string> > >& clusters,
 }
 
 int main(int argc, const char *argv[]) {
-  srand (time(NULL));try {
+  srand (time(NULL));
+  try {
     string command = argv[0];
     bool help_info = false;
     for (int i = 1; i < argc; i++) {

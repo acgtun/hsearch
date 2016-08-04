@@ -27,7 +27,7 @@ ifndef SMITHLAB_CPP
 SMITHLAB_CPP=./../smithlab_cpp
 endif
 
-PROGS = hclust shuffle_kmers hclust2
+PROGS = hclust shuffle_kmers hclust2 hclust3 centerDistanceSmapling kmer_search
 
 CXX = g++
 CFLAGS = -Wall -std=c++11 -O3 -fPIC -fmessage-length=50 -w
@@ -52,7 +52,16 @@ hclust : $(OBJCLUSTER) \
 hclust2 : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
+hclust3 : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
 shuffle_kmers : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+centerDistanceSmapling : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+kmer_search : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
 %: %.cpp
