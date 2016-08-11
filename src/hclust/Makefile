@@ -27,8 +27,8 @@ ifndef SMITHLAB_CPP
 SMITHLAB_CPP=./../smithlab_cpp
 endif
 
-PROGS = hclust shuffle_kmers hclust2 hclust3 centerDistanceSmapling kmer_search
-
+#PROGS = hclust shuffle_kmers hclust2 hclust3 centerDistanceSmapling kmer_search protein2datapoints motif_both_points evaluate motif_both_points_noLSH
+PROGS = motif_both_points motif_both_points_noLSH protein2datapoints evaluate2 centerDistanceSmapling hclust3 hclust2
 CXX = g++
 CFLAGS = -Wall -std=c++11 -O3 -fPIC -fmessage-length=50 -w
 
@@ -62,6 +62,18 @@ centerDistanceSmapling : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
 kmer_search : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+protein2datapoints : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+motif_both_points : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+motif_both_points_noLSH : $(OBJCLUSTER) \
+	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
+
+evaluate2 : $(OBJCLUSTER) \
 	$(addprefix $(SMITHLAB_CPP)/, smithlab_os.o smithlab_utils.o OptionParser.o)
 
 %: %.cpp

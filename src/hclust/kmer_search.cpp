@@ -25,24 +25,24 @@ struct Point {
 typedef unordered_map<string, vector<uint32_t> > HashTable;
 typedef unordered_map<uint32_t, pair<uint32_t, double> > ProteinCenterID;
 
-Point KmerToCoordinates(const string& kmer) {
-  Point point;
-  size_t k = 0;
-  for (size_t i = 0; i < kmer.size(); ++i) {
-    int AA = base[kmer[i] - 'A'];
-    if (AA == -1) {
-      AA = rand() % 20;
-    }
-    for (size_t j = 0; j < AACoordinateSize; ++j) {
-      point.data[k++] = coordinates[AA][j];
-    }
-  }
-  return point;
-}
+//Point KmerToCoordinates(const string& kmer) {
+//  Point point;
+//  size_t k = 0;
+//  for (size_t i = 0; i < kmer.size(); ++i) {
+//    int AA = base[kmer[i] - 'A'];
+//    if (AA == -1) {
+//      AA = rand() % 20;
+//    }
+//    for (size_t j = 0; j < AACoordinateSize; ++j) {
+//      point.data[k++] = coordinates[AA][j];
+//    }
+//  }
+//  return point;
+//}
 
 double PairwiseDistance(const Point& a, const Point& b) {
   double dis = 0.0, r = 0.0;
-  for (int i = 0; i < DIMENSION; ++i) {
+  for (uint32_t i = 0; i < DIMENSION; ++i) {
     r = a.data[i] - b.data[i];
     dis += r * r;
   }
@@ -51,11 +51,11 @@ double PairwiseDistance(const Point& a, const Point& b) {
 
 Point PointByPosition(const ProteinDB& prodb, const uint32_t& position) {
   Point point;
-  uint32_t q = 0, pos =position;
-  for (uint32_t k = 0; k < KMERLENGTH; ++k) {
-    int AA = base[prodb.sequence[pos++] - 'A'];
-    for (size_t p = 0; p < AACoordinateSize; ++p) {
-      point.data[q++] = coordinates[AA][p];
+  uint32_t k = 0;
+  for (uint32_t i = 0; i < KMERLENGTH; ++i) {
+    int AA = base[prodb.sequence[position + i] - 'A'];
+    for (size_t j = 0; j < AACoordinateSize; ++j) {
+      point.data[k++] = coordinates[AA][j];
     }
   }
   return point;

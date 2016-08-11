@@ -1,5 +1,6 @@
 #include "util.hpp"
 #include <stdint.h>
+#include <stdio.h>
 #include <vector>
 #include <string>
 #include <unordered_set>
@@ -8,7 +9,7 @@
 
 using namespace std;
 
-#define MIN_SIZE_CLUSTER 100
+#define MIN_SIZE_CLUSTER 50
 uint32_t DIMENSION = 200;
 
 struct Point {
@@ -76,6 +77,156 @@ Point Center(const vector<Point>& points) {
   return center;
 }
 
+//void randomSampling(vector<pair<string, vector<string> > >& clusters) {
+//  vector<string > sequences;
+//  for (int i = 0; i < clusters.size(); i++) {
+//    for (int j = 0; j < clusters[i].second.size(); j++) {
+//      sequences.push_back(clusters[i].second[j]);
+//    }
+//  }
+//  //sprintf(out, "%s_randomPoints2Center_cluster%d.txt", output_file.c_str());
+//  ofstream fout("randomPointsDistancexxxx.txt");
+//  unordered_set < string > kmers;
+//  vector<Point> randomPoints;
+//  srand (time(NULL));
+//  while(randomPoints.size() < 10000) {
+//    string kmer;
+//    int r = rand() % sequences.size();
+//    if(kmers.find(sequences[r]) == kmers.end()) {
+//      kmers.insert(sequences[r]);
+//      cout << sequences[r] << endl;
+//      randomPoints.push_back(KmerToCoordinates(sequences[r]));
+//    }
+//  }
+//
+//  for (int p = 0; p < randomPoints.size(); ++p) {
+//    for (int q = p + 1; q < randomPoints.size(); ++q) {
+//      fout << PairwiseDistance(randomPoints[q], randomPoints[p]) << endl;
+//    }
+//  }
+//  fout.close();
+//}
+
+void cluster2datapoint(vector<pair<string, vector<string> > >& clusters,
+                   const string& output_file) {
+  string ooohclust = output_file;
+  ooohclust += "hclust.format.txt";
+  vector<Point> centers;
+  for (int i = 0; i < clusters.size(); i++) {
+    cout << i << endl;
+    vector<Point> points;
+    for (int j = 0; j < clusters[i].second.size(); j++) {
+      points.push_back(KmerToCoordinates(clusters[i].second[j]));
+    }
+    Point center = Center(points);
+    centers.push_back(center);
+  }
+
+
+  ofstream foutcenter(ooohclust.c_str());
+  for (int p = 0; p < centers.size(); p++) {
+    foutcenter << clusters[p].first << endl;
+    foutcenter << centers[p].data[0];
+    for (int q = 1; q < DIMENSION; q++) {
+      foutcenter << " " << centers[p].data[q];
+    }
+    foutcenter << endl;
+  }
+  foutcenter.close();
+}
+
+void sequencedatabase2centers(const vector<Point>& kmers_proteins,
+                              vector<pair<string, vector<string> > >& clusters,
+                              const string& output_file) {
+  vector<Point> centers;
+  for (int i = 0; i < clusters.size(); i++) {
+    cout << i << endl;
+    vector<Point> points;
+    for (int j = 0; j < clusters[i].second.size(); j++) {
+      points.push_back(KmerToCoordinates(clusters[i].second[j]));
+    }
+    Point center = Center(points);
+    centers.push_back(center);
+  }
+  ///////////////////////////
+  char oooo[100];
+  sprintf(oooo, "./pro2centerdis/%sinnercenter_protein_centers_%d.txt", output_file.c_str(), 0);
+  cout << oooo << endl;
+  ofstream fcenter(oooo);
+  for(int i = 0;i < clusters.size();++i) {
+    for(int j = i + 1;j < clusters.size();++j) {
+      fcenter << PairwiseDistance(centers[i], centers[j]) << endl;
+    }
+  }
+  fcenter.close();
+  //////////////////////////////
+
+  vector<Point> randomPoints;
+  unordered_set<uint32_t> kmers;
+  int i = 0;
+  while(i < 100000) {
+    //int r = rand() % kmers_proteins.size();
+   // if (kmers.find(r) == kmers.end()) {
+     // kmers.insert(r);
+      randomPoints.push_back(kmers_proteins[i]);
+      i++;
+    //}
+  }
+  char ooo[100];
+  sprintf(ooo, "./pro2centerdis/%sramdom_protein_centers_%d.txt", output_file.c_str(), 0);
+  cout << ooo << endl;
+  ofstream fout(ooo);
+  for (int p = 0; p < centers.size(); p++) {
+    for (int q = 0; q < randomPoints.size(); q++) {
+      fout << PairwiseDistance(randomPoints[q], centers[p]) << endl;
+    }
+  }
+  fout.close();
+
+}
+
+
+void meme_format_output( vector<pair<string, vector<string> > >& clusters,
+                        const string& output_file) {
+  string ooo = output_file;
+  ooo += "meme.format.txt";
+  FILE * fout = fopen(ooo.c_str(), "w");
+  fprintf(fout, "MEME version 4\n\n");
+  fprintf(fout, "ALPHABET= ACDEFGHIKLMNPQRSTVWY\n\n");
+  string ALPHABET= "ACDEFGHIKLMNPQRSTVWY";
+  for (int i = 0; i < clusters.size(); i++) {
+    fprintf(fout, "MOTIF %s\n", clusters[i].first.c_str());
+    fprintf(fout, "letter-probability matrix: alength= 20 w= %u\n", clusters[i].second[0].size());
+    vector<vector<double> > pro(clusters[i].second[0].size(), vector<double>(26, 0.0));
+    while(clusters[i].second.size() > 10) {
+      clusters[i].second.pop_back();
+    }
+
+    for (int j = 0; j < clusters[i].second.size(); j++) {
+      fprintf(fout,"%s\n", clusters[i].second[j].c_str());
+    }
+
+    fprintf(fout, "\n A    C    D    E    F    G    H    I    K    L    M    N    P    Q    R    S    T    V    W    Y\n");
+    for (int j = 0; j < clusters[i].second.size(); j++) {
+      for(int k = 0;k < clusters[i].second[j].size();++k)
+        pro[k][clusters[i].second[j][k] - 'A'] += 1.0;
+    }
+    for(int k = 0;k < clusters[i].second[0].size();++k) {
+      double sum = 0.0;
+      for(int i = 0;i < 26;++i) {
+        sum += pro[k][i];
+      }
+      fprintf(fout, "%.2lf", pro[k][0] / sum);
+      for(int i = 1;i < 26;++i) {
+        if(ALPHABET.find_first_of('A' + i) == string::npos) continue;
+        fprintf(fout, " %.2lf", pro[k][i] / sum);
+      }
+      fprintf(fout, "\n");
+    }
+  }
+  fclose(fout);
+}
+
 void clusterDistance(vector<pair<string, vector<string> > >& clusters,
                    const string& output_file) {
   int total_num_motif_seqs = 0;
@@ -87,8 +238,11 @@ void clusterDistance(vector<pair<string, vector<string> > >& clusters,
   ////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////
   string ooo = output_file;
+  string ooohclust = output_file;
   ooo += "meme.format.txt";
+  ooohclust += "hclust.format.txt";
   ofstream fmeme(ooo.c_str());
+  ofstream fclust(ooohclust.c_str());
   fmeme << "MEME version 4" << endl;
   fmeme << endl;
   fmeme << "ALPHABET= ACDEFGHIKLMNPQRSTVWY" << endl;
@@ -166,7 +320,9 @@ void clusterDistance(vector<pair<string, vector<string> > >& clusters,
   }
   fcenter.close();
  */
-  ofstream foutcenter("Pfam.entries.centers.point_startall.txt");
+  string center_name = output_file;
+  center_name += "Pfam.entries.centers.point.txt";
+  ofstream foutcenter(center_name.c_str());
   for (int p = 0; p < centers.size(); p++) {
     foutcenter << centers[p].data[0];
     for (int q = 1; q < DIMENSION; q++) {
@@ -232,6 +388,8 @@ int main(int argc, const char *argv[]) {
     /* kmers file */
     string kmers_file;
 
+    string protein_file;
+
     /* kmer length */
     uint32_t kmer_length;
 
@@ -242,6 +400,8 @@ int main(int argc, const char *argv[]) {
         "");
     opt_parse.add_opt("kmers", 'k', "kmers file", true,
         kmers_file);
+    opt_parse.add_opt("protein", 'd', "protein file", true,
+          protein_file);
     opt_parse.add_opt("len", 'l', "kmer length", true,
         kmer_length);
     opt_parse.add_opt("output", 'o', "output file name", true, output_file);
@@ -286,7 +446,28 @@ int main(int argc, const char *argv[]) {
     }
     cout << "Number of Clusters: " << clusters.size() << endl;
 
-    clusterDistance(clusters, output_file);
+    ////
+    vector<Point> kmers_proteins;
+    fin.open(protein_file.c_str());
+    while(getline(fin, line)) {
+      //kmer_names.push_back(line);
+      getline(fin, line);
+      istringstream iss(line);
+      Point point;
+      for(uint32_t i = 0;i < DIMENSION;++i) {
+        iss >> point.data[i];
+      }
+      kmers_proteins.push_back(point);
+    }
+    fin.close();
+
+    //clusterDistance(clusters, output_file);
+    //randomSampling(clusters);
+    //cluster2datapoint(clusters, output_file);
+    //meme_format_output(clusters, output_file);
+    //cluster2datapoint(clusters,output_file);
+    sequencedatabase2centers( kmers_proteins, clusters,
+        output_file);
 
   } catch (const SMITHLABException &e) {
     fprintf(stderr, "%s\n", e.what().c_str());

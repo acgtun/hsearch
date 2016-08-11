@@ -73,7 +73,7 @@ double PairwiseDistance(const Point& a, const Point& b) {
 
 void BuildLSHTalbe(const vector<KMER>& kmers, const vector<uint8_t>& merged,
                    const LSH& lsh, HashTable& lsh_table) {
-  cout << "BuildLSHTalbes... " << endl;
+  //cout << "BuildLSHTalbes... " << endl;
   for (uint32_t i = 0; i < kmers.size(); ++i) {
     if (merged[i] == 2) {
       continue;
@@ -98,8 +98,9 @@ void Clustering(const vector<KMER>& kmers,
   for (uint32_t i = 0; i < kmers.size(); ++i) {
     clusters[i].AddPoint(i);
   }
+  clock_t start = clock();
   for (uint32_t l = 0; l < hash_L; ++l) {
-    clock_t start = clock();
+
     HashTable lsh_table;
     LSH lsh(DIMENSION, hash_K, hash_W);
     BuildLSHTalbe(kmers, merged, lsh, lsh_table);
@@ -129,10 +130,9 @@ void Clustering(const vector<KMER>& kmers,
         }
       }
     }
-
-    printf("Clustering l=%d takes %lf seconds\n", l,
-           (clock() - start) / (double) CLOCKS_PER_SEC);
   }
+  printf("ClusteringTime takes %lf seconds\n",
+           (clock() - start) / (double) CLOCKS_PER_SEC);
 
   ofstream fout(output_file.c_str());
   uint32_t cluster_id = 0;
