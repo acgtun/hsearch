@@ -1,4 +1,2 @@
-orf
-===
 open reading frame
 
