@@ -1,1 +1,1 @@
-# protein_motif_discovery
+# protein motif search and clustering
