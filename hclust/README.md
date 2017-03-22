@@ -1,1 +1,1 @@
-# protein motif search and clustering
+protein motif search and clustering
