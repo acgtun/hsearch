@@ -1,3 +1,0 @@
-[submodule "src/acgtun_util"]
-	path = src/acgtun_util
-	url = git@github.com:acgtun/acgtun_util.git
